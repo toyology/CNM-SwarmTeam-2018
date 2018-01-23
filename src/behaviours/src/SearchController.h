@@ -28,7 +28,7 @@ public:
   void SetSuccesfullPickup();
 
   //sets the value for initial point in search pattern
-  int SearchStartPosition();
+  int SquareSearchStartPosition();
 
 protected:
 

@@ -27,6 +27,9 @@ public:
   void SetCenterLocation(Point centerLocation);
   void SetSuccesfullPickup();
 
+  //sets the value for initial point in search pattern
+  int SquareSearchStartPosition();
+
 protected:
 
   void ProcessData();

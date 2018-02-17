@@ -34,7 +34,7 @@ Result LogicController::DoWork() {
   //most important. A priority of less than 0 is an ignored controller use -1 for standards sake.
   //if any controller needs and interrupt the logic state is changed to interrupt
   for(PrioritizedController cntrlr : prioritizedControllers) {
-    if(cntrlr.controller->ShouldInterrupt() && cntrlr.priority >= 0) 
+    if(cntrlr.controller->ShouldInterrupt() && cntrlr.priority >= 0)
       {
 	logicState = LOGIC_STATE_INTERRUPT;
 	//do not break all shouldInterupts may need calling in order to properly pre-proccess data.
@@ -179,17 +179,17 @@ Result LogicController::DoWork() {
   return result;
 }
 
-void LogicController::UpdateData() 
+void LogicController::UpdateData()
 {
 
 
 }
 
-void LogicController::ProcessData() 
+void LogicController::ProcessData()
 {
 
   //this controller priority is used when searching
-  if (processState == PROCCESS_STATE_SEARCHING) 
+  if (processState == PROCCESS_STATE_SEARCHING)
   {
     prioritizedControllers = {
       PrioritizedController{0, (Controller*)(&searchController)},
@@ -202,7 +202,7 @@ void LogicController::ProcessData()
   }
 
   //this priority is used when returning a target to the center collection zone
-  else if (processState  == PROCCESS_STATE_TARGET_PICKEDUP) 
+  else if (processState  == PROCCESS_STATE_TARGET_PICKEDUP)
   {
     prioritizedControllers = {
     PrioritizedController{-1, (Controller*)(&searchController)},
@@ -234,37 +234,37 @@ void LogicController::ProcessData()
       PrioritizedController{-1, (Controller*)(&range_controller)},
       PrioritizedController{-1, (Controller*)(&dropOffController)},
       PrioritizedController{5,  (Controller*)(&manualWaypointController)}
-    };     
+    };
   }
 }
 
-bool LogicController::ShouldInterrupt() 
+bool LogicController::ShouldInterrupt()
 {
   ProcessData();
 
   return false;
 }
 
-bool LogicController::HasWork() 
+bool LogicController::HasWork()
 {
   return false;
 }
 
 
-void LogicController::controllerInterconnect() 
+void LogicController::controllerInterconnect()
 {
 
-  if (processState == PROCCESS_STATE_SEARCHING) 
+  if (processState == PROCCESS_STATE_SEARCHING)
   {
 
     //obstacle needs to know if the center ultrasound should be ignored
-    if(pickUpController.GetIgnoreCenter()) 
+    if(pickUpController.GetIgnoreCenter())
     {
       obstacleController.setIgnoreCenterSonar();
     }
 
     //pickup controller annouces it has pickedup a target
-    if(pickUpController.GetTargetHeld()) 
+    if(pickUpController.GetTargetHeld())
     {
       dropOffController.SetTargetPickedUp();
       obstacleController.setTargetHeld();
@@ -273,13 +273,13 @@ void LogicController::controllerInterconnect()
   }
 
   //ask if drop off has released the target from the claws yet
-  if (!dropOffController.HasTarget()) 
+  if (!dropOffController.HasTarget())
   {
     obstacleController.setTargetHeldClear();
   }
 
   //obstacle controller is running driveController needs to clear its waypoints
-  if(obstacleController.getShouldClearWaypoints()) 
+  if(obstacleController.getShouldClearWaypoints())
   {
     driveController.Reset();
   }
@@ -287,7 +287,7 @@ void LogicController::controllerInterconnect()
 }
 
 // Recieves position in the world inertial frame (should rename to SetOdomPositionData)
-void LogicController::SetPositionData(Point currentLocation) 
+void LogicController::SetPositionData(Point currentLocation)
 {
   searchController.SetCurrentLocation(currentLocation);
   dropOffController.SetCurrentLocation(currentLocation);
@@ -297,39 +297,39 @@ void LogicController::SetPositionData(Point currentLocation)
 }
 
 // Recieves position in the world frame with global data (GPS)
-void LogicController::SetMapPositionData(Point currentLocation) 
+void LogicController::SetMapPositionData(Point currentLocation)
 {
-  range_controller.setCurrentLocation(currentLocation);  
+  range_controller.setCurrentLocation(currentLocation);
 }
 
-void LogicController::SetVelocityData(float linearVelocity, float angularVelocity) 
+void LogicController::SetVelocityData(float linearVelocity, float angularVelocity)
 {
   driveController.SetVelocityData(linearVelocity,angularVelocity);
 }
 
-void LogicController::SetMapVelocityData(float linearVelocity, float angularVelocity) 
+void LogicController::SetMapVelocityData(float linearVelocity, float angularVelocity)
 {
 
 }
 
-void LogicController::SetAprilTags(vector<Tag> tags) 
+void LogicController::SetAprilTags(vector<Tag> tags)
 {
   pickUpController.SetTagData(tags);
   obstacleController.setTagData(tags);
   dropOffController.SetTargetData(tags);
 }
 
-void LogicController::SetSonarData(float left, float center, float right) 
+void LogicController::SetSonarData(float left, float center, float right)
 {
   pickUpController.SetSonarData(center);
   obstacleController.setSonarData(left,center,right);
 }
 
 // Called once by RosAdapter in guarded init
-void LogicController::SetCenterLocationOdom(Point centerLocationOdom) 
+void LogicController::SetCenterLocationOdom(Point centerLocationOdom)
 {
-  searchController.SetCenterLocation(centerLocationOdom);
-  dropOffController.SetCenterLocation(centerLocationOdom);
+  //searchController.SetCenterLocation(centerLocationOdom);  //used in Base Code
+  //dropOffController.SetCenterLocation(centerLocationOdom); //used in Base Code
 }
 
 void LogicController::AddManualWaypoint(Point manualWaypoint, int waypoint_id)
@@ -358,9 +358,10 @@ void LogicController::setVirtualFenceOff()
   range_controller.setEnabled(false);
 }
 
-void LogicController::SetCenterLocationMap(Point centerLocationMap) 
+void LogicController::SetCenterLocationMap(Point centerLocationMap)
 {
-
+  searchController.SetCenterLocation(centerLocationMap); //added since Base Code
+  dropOffController.SetCenterLocation(centerLocationMap); //added since Base Code
 }
 
 void LogicController::SetCurrentTimeInMilliSecs( long int time )

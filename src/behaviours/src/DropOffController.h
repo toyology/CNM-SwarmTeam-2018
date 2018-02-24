@@ -31,6 +31,8 @@ public:
 
   void SetCurrentTimeInMilliSecs( long int time );
 
+  void cnmSetCenterLocation(Point center);
+
 private:
 
   void ProcessData();
@@ -79,6 +81,7 @@ private:
   //Center and current locations as of the last call to setLocationData
   Point centerLocation;
   Point currentLocation;
+  Point cnmCenterLocation;
 
   //Time since modeTimer was started, in seconds
   float timerTimeElapsed;

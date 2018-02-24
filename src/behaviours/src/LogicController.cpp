@@ -290,7 +290,7 @@ void LogicController::controllerInterconnect()
 void LogicController::SetPositionData(Point currentLocation)
 {
   searchController.SetCurrentLocation(currentLocation);
-  dropOffController.SetCurrentLocation(currentLocation);
+  //dropOffController.SetCurrentLocation(currentLocation);
   obstacleController.setCurrentLocation(currentLocation);
   driveController.SetCurrentLocation(currentLocation);
   manualWaypointController.SetCurrentLocation(currentLocation);
@@ -300,6 +300,7 @@ void LogicController::SetPositionData(Point currentLocation)
 void LogicController::SetMapPositionData(Point currentLocation)
 {
   range_controller.setCurrentLocation(currentLocation);
+  dropOffController.SetCurrentLocation(currentLocation);
 }
 
 void LogicController::SetVelocityData(float linearVelocity, float angularVelocity)
@@ -360,9 +361,16 @@ void LogicController::setVirtualFenceOff()
 
 void LogicController::SetCenterLocationMap(Point centerLocationMap)
 {
-  searchController.SetCenterLocation(centerLocationMap); //added since Base Code
-  dropOffController.SetCenterLocation(centerLocationMap); //added since Base Code
+  //searchController.SetCenterLocation(centerLocationMap); //CNM added since Base Code
+  //dropOffController.SetCenterLocation(centerLocationMap); //CNM added since Base Code
 }
+
+void LogicController::cnmSetCenterLocationMAP(Point cnmCenterLocation)
+{
+  searchController.cnmSetCenterLocation(cnmCenterLocation); //CNM added since Base Code
+  dropOffController.cnmSetCenterLocation(cnmCenterLocation); //CNM added since Base Code
+}
+
 
 void LogicController::SetCurrentTimeInMilliSecs( long int time )
 {

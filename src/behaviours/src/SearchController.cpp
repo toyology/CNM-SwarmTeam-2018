@@ -15,8 +15,8 @@ SearchController::SearchController() {
   centerLocation.theta = 0;
   result.PIDMode = FAST_PID;
 
-  cnmCenterLocation.x = 0;                                    //set default center to (0,0)
-  cnmCenterLocation.y = 0;
+  //cnmCenterLocation.x = 0;                                    //set default center to (0,0)
+  //cnmCenterLocation.y = 0;
 
   result.fingerAngle = M_PI/2;
   result.wristAngle = M_PI/4;
@@ -32,7 +32,7 @@ void SearchController::Reset() {
 Result SearchController::DoWork() {
 
   // Print info everytime the search loop is used
-cout << "SEARCH SquareSearchStartPositionler is doing work"  << endl;
+cout << "SEARCH - SquareSearchStartPosition is doing work"  << endl;
 
 //if for some reason searchLoop goes out of bounds, reset
 //---------------------------------------------
@@ -154,9 +154,10 @@ Result SearchController::DoWork() {
 
 */
 
-void SearchController::setCenterLocation(Point newLocation)
+void SearchController::cnmSetCenterLocation(Point newLocation)
 {
     cnmCenterLocation = newLocation;
+
 }
 
 void SearchController::SetCenterLocation(Point centerLocation) {

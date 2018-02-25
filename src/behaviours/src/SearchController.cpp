@@ -1,11 +1,7 @@
 #include "SearchController.h"
 #include <angles/angles.h>
 
-<<<<<<< HEAD
 int cnmSquareSearchLoop = 0;
-=======
-int cnmSearchLoop = 0;
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
 
 SearchController::SearchController() {
   rng = new random_numbers::RandomNumberGenerator();
@@ -32,21 +28,12 @@ void SearchController::Reset() {
 Result SearchController::DoWork() {
 
   // Print info everytime the search loop is used
-<<<<<<< HEAD
 cout << "SEARCH SquareSearchStartPositionler is doing work"  << endl;
 
 //if for some reason searchLoop goes out of bounds, reset
 //---------------------------------------------
 if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
   cnmSquareSearchLoop = 0;
-=======
-cout << "SEARCH - SearchController is doing work"  << endl;
-
-//if for some reason searchLoop goes out of bounds, reset
-//---------------------------------------------
-if (cnmSearchLoop < 0 || cnmSearchLoop > 3) {
-  cnmSearchLoop = 0;
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
   cout << "SEARCH - search loop out of bounds, reset"  << endl;
  }
 
@@ -64,73 +51,41 @@ if (cnmSearchLoop < 0 || cnmSearchLoop > 3) {
     {
       cout << "SEARCH - finding where to go first"  << endl;
       first_waypoint = false;
-<<<<<<< HEAD
       cnmSquareSearchLoop = SearchController::SquareSearchStartPosition();
     }
     else if (cnmSquareSearchLoop == 0) //corner in quaderant 1
-=======
-      cnmSearchLoop = SearchController::SearchStartPosition();
-
-
-    }
-    else if (cnmSearchLoop == 0) //corner in quaderant 1
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
     {
       cout << "SEARCH - going to first corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
       searchLocation.x = centerLocation.x + 2.5;
       searchLocation.y = centerLocation.y + 2.5;
-<<<<<<< HEAD
       cnmSquareSearchLoop = 1;
     }
     else if (cnmSquareSearchLoop == 1) //corner in quaderant 2
-=======
-      cnmSearchLoop = 1;
-    }
-    else if (cnmSearchLoop == 1) //corner in quaderant 2
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
     {
       cout << "SEARCH - going to second corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
       searchLocation.x = centerLocation.x - 2.5;
       searchLocation.y = centerLocation.y + 2.5;
-<<<<<<< HEAD
       cnmSquareSearchLoop = 2;
 
     }
     else if (cnmSquareSearchLoop == 2) //corner in quaderant 3
-=======
-      cnmSearchLoop = 2;
-
-    }
-    else if (cnmSearchLoop == 2) //corner in quaderant 3
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
     {
       cout << "SEARCH - going to third corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
       searchLocation.x = centerLocation.x - 2.5;
       searchLocation.y = centerLocation.y - 2.5;
-<<<<<<< HEAD
       cnmSquareSearchLoop = 3;
 
     }
     else if (cnmSquareSearchLoop == 3) //corner in quaderant 4
-=======
-      cnmSearchLoop = 3;
-
-    }
-    else if (cnmSearchLoop == 3) //corner in quaderant 4
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
     {
       cout << "SEARCH - going to forth corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
       searchLocation.x = centerLocation.x + 2.5;
       searchLocation.y = centerLocation.y - 2.5;
-<<<<<<< HEAD
       cnmSquareSearchLoop = 0;
-=======
-      cnmSearchLoop = 0;
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
 
     }
 
@@ -142,16 +97,8 @@ if (cnmSearchLoop < 0 || cnmSearchLoop > 3) {
  }
 
 
-<<<<<<< HEAD
 /*
 // This code implements the UNM basic random walk search.
-=======
-
-/* UNM BaseCode Random Walk
-
-
- //This code implements a basic random walk search.
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
 
 Result SearchController::DoWork() {
 
@@ -203,34 +150,6 @@ Result SearchController::DoWork() {
 
 */
 
-<<<<<<< HEAD
-=======
-//decides which quaderant to send the rover based on it current heading + 180deg
-int SearchController::SearchStartPosition()
-{
-    int searchLoop =0;
-
-    if (currentLocation.theta + M_PI <= angles::from_degrees(80))
-    {
-        searchLoop = 0;
-    }
-    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(170))
-    {
-        searchLoop = 1;
-    }
-    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(260))
-    {
-        searchLoop = 2;
-    }
-    else if (currentLocation.theta  + M_PI <= angles::from_degrees(350))
-    {
-        searchLoop = 3;
-    }
-
-    return searchLoop;
-  }
-
->>>>>>> 6e3641d4eb3b2eec9bfdcd604605b6c39e622360
 void SearchController::SetCenterLocation(Point centerLocation) {
 
   float diffX = this->centerLocation.x - centerLocation.x;

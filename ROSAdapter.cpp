@@ -47,16 +47,15 @@ public:
   ROSAdapterRangeShapeInvalidTypeException(std::string msg) {
     this->msg = msg;
   }
-
+  
   virtual const char* what() const throw()
   {
     std::string message = "Invalid RangeShape type provided: " + msg;
     return message.c_str();
   }
-
+  
 private:
   std::string msg;
-  std::string Msg; 		//sortOrder
 };
 
 
@@ -77,20 +76,20 @@ void raiseWrist();  // Return wrist back to 0 degrees
 void lowerWrist();  // Lower wrist to 50 degrees
 void resultHandler();
 void CNMFirstBoot();        //StartOrder
-void sortOrder();     //SortOrder
+
 
 Point updateCenterLocation();
 void transformMapCentertoOdom();
 
 
 // Numeric Variables for rover positioning
-geometry_msgs::Pose2D currentLocation;          //current location of robot
-geometry_msgs::Pose2D currentLocationMap;       //current location on MAP
-geometry_msgs::Pose2D currentLocationAverage;   //???
+geometry_msgs::Pose2D currentLocation;
+geometry_msgs::Pose2D currentLocationMap;
+geometry_msgs::Pose2D currentLocationAverage;
 
-geometry_msgs::Pose2D centerLocation;           //location of center location
-geometry_msgs::Pose2D centerLocationMap;        //location of center on map
-geometry_msgs::Pose2D centerLocationOdom;       //location of center ODOM
+geometry_msgs::Pose2D centerLocation;
+geometry_msgs::Pose2D centerLocationMap;
+geometry_msgs::Pose2D centerLocationOdom;
 geometry_msgs::Pose2D centerLocationMapRef;
 
 int currentMode = 0;
@@ -111,13 +110,13 @@ long int startTime = 0;
 float minutesTime = 0;
 float hoursTime = 0;
 
+bool cnmFirstBootProtocol = true;
 
 float drift_tolerance = 0.5; // meters
 
 Result result;
 
 std_msgs::String msg;
-std_msgs::String Msg;			//sortOrder
 
 
 geometry_msgs::Twist velocity;
@@ -137,11 +136,10 @@ ros::Publisher heartbeatPublisher;
 // to indicate when waypoints have been reached.
 ros::Publisher waypointFeedbackPublisher;
 ros::Publisher startOrderPub;		//startOrder
-ros::Publisher sortOrderPub;		//SortOrder
 
 // Subscribers
 ros::Subscriber joySubscriber;
-ros::Subscriber modeSubscriber;
+ros::Subscriber modeSubscriber; 
 ros::Subscriber targetSubscriber;
 ros::Subscriber odometrySubscriber;
 ros::Subscriber mapSubscriber;
@@ -150,7 +148,6 @@ ros::Subscriber virtualFenceSubscriber;
 // swarmie_msgs::Waypoint messages.
 ros::Subscriber manualWaypointSubscriber;
 ros::Subscriber startOrderSub;			//startOrder
-ros::Subscriber sortOrderSub;			//SortOrder
 
 // Timers
 ros::Timer stateMachineTimer;
@@ -160,7 +157,7 @@ ros::Timer publish_heartbeat_timer;
 // records time for delays in sequanced actions, 1 second resolution.
 time_t timerStartTime;
 
-// An initial delay to allow the rover to gather enough position data to
+// An initial delay to allow the rover to gather enough position data to 
 // average its location.
 unsigned int startDelayInSeconds = 30;
 float timerTimeElapsed = 0;
@@ -184,90 +181,21 @@ void publishStatusTimerEventHandler(const ros::TimerEvent& event);
 void publishHeartBeatTimerEventHandler(const ros::TimerEvent& event);
 void sonarHandler(const sensor_msgs::Range::ConstPtr& sonarLeft, const sensor_msgs::Range::ConstPtr& sonarCenter, const sensor_msgs::Range::ConstPtr& sonarRight);
 void startOrderHandler(const std_msgs::String& msg);			//startOrder
-void sortOrderHandler(const std_msgs::String& msg);	//SortOrder
+
+
+//VAIRABLES FOR //startOrder
+bool testCount = true;		//bool for window to increment
+float cnmStartOrder = 0;           //startCheck	
+float CNMTEST2 = true;
 
 // Converts the time passed as reported by ROS (which takes Gazebo simulation rate into account) into milliseconds as an integer.
 long int getROSTimeInMilliSecs();
 
-
-
-
-/* CNM added code --------------------------------------------------------------
-------------------------------------------------------------------------------*/
-
-Point cnmCenterLocation;
-void CNMAVGCenter(Point cnmCenterLocation);       //Avergages derived center locations
-bool purgeMap = false;
-
-
-//Actual Center Array
-float CenterXCoordinates[20]; //was 10 for 2017
-float CenterYCoordinates[20]; //was 10 for 2017
-
-
-//INITIAL NEST SEARCH
-bool cnmFirstBootProtocol = true;
-bool cnmHasWaitedInitialAmount = false;
-bool cnmInitialPositioningComplete = false;
-bool cnmHasMovedForward = false;
-bool cnmHasTurned180 = false;
-
-//VAIRABLES FOR //startOrder
-bool testCount = true;		//bool for window to increment
-float cnmStartOrder = 0;           //startCheck
-bool sortTrigger = true;
-bool sortTrigger1 = true;
-bool sortTrigger2 = true;
-
-// IP address test @@@@
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <ifaddrs.h>
-#include <stdio.h>
-
-char ip_string[20];
-char *ip;
-
-char* getip ()
-{
-    struct ifaddrs *ifap, *ifa;
-    struct sockaddr_in *sa;
-    char *addr;
-
-    getifaddrs (&ifap);
-    for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family==AF_INET) {
-            sa = (struct sockaddr_in *) ifa->ifa_addr;
-            addr = inet_ntoa(sa->sin_addr);
-            printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
-            sprintf(ip_string, "%s", addr);
-            printf("%s \n", ip_string);
-        }
-    }
-
-    freeifaddrs(ifap);
-    return ip_string;
-}
-/* @@@@ */
-
-
-
-
-
 int main(int argc, char **argv) {
-
-
-  /* @@@ */
-    ip = getip();
-    cout << "@@@@" << ip_string << endl;
-
-  /* @@@ */
-
-
-
+  
   gethostname(host, sizeof (host));
   string hostname(host);
-
+  
   if (argc >= 2) {
     publishedName = argv[1];
     cout << "Welcome to the world of tomorrow " << publishedName
@@ -276,14 +204,14 @@ int main(int argc, char **argv) {
     publishedName = hostname;
     cout << "No Name Selected. Default is: " << publishedName << endl;
   }
-
+  
   // NoSignalHandler so we can catch SIGINT ourselves and shutdown the node
   ros::init(argc, argv, (publishedName + "_BEHAVIOUR"), ros::init_options::NoSigintHandler);
   ros::NodeHandle mNH;
-
+  
   // Register the SIGINT event handler so the node can shutdown properly
   signal(SIGINT, sigintEventHandler);
-
+  
   joySubscriber = mNH.subscribe((publishedName + "/joystick"), 10, joyCmdHandler);
   modeSubscriber = mNH.subscribe((publishedName + "/mode"), 1, modeHandler);
   targetSubscriber = mNH.subscribe((publishedName + "/targets"), 10, targetHandler);
@@ -294,10 +222,8 @@ int main(int argc, char **argv) {
   message_filters::Subscriber<sensor_msgs::Range> sonarLeftSubscriber(mNH, (publishedName + "/sonarLeft"), 10);
   message_filters::Subscriber<sensor_msgs::Range> sonarCenterSubscriber(mNH, (publishedName + "/sonarCenter"), 10);
   message_filters::Subscriber<sensor_msgs::Range> sonarRightSubscriber(mNH, (publishedName + "/sonarRight"), 10);
-
-  startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
-    sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
-
+    startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
+  
   status_publisher = mNH.advertise<std_msgs::String>((publishedName + "/status"), 1, true);
   stateMachinePublish = mNH.advertise<std_msgs::String>((publishedName + "/state_machine"), 1, true);
   fingerAnglePublish = mNH.advertise<std_msgs::Float32>((publishedName + "/fingerAngle/cmd"), 1, true);
@@ -306,25 +232,23 @@ int main(int argc, char **argv) {
   driveControlPublish = mNH.advertise<geometry_msgs::Twist>((publishedName + "/driveControl"), 10);
   heartbeatPublisher = mNH.advertise<std_msgs::String>((publishedName + "/behaviour/heartbeat"), 1, true);
   waypointFeedbackPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints"), 1, true);
-
-   startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
-   sortOrderSub = mNH.subscribe("sortOrder", 1000, &sortOrderHandler);				//sortOrder
+    startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
 
   publish_status_timer = mNH.createTimer(ros::Duration(status_publish_interval), publishStatusTimerEventHandler);
   stateMachineTimer = mNH.createTimer(ros::Duration(behaviourLoopTimeStep), behaviourStateMachine);
-
+  
   publish_heartbeat_timer = mNH.createTimer(ros::Duration(heartbeat_publish_interval), publishHeartBeatTimerEventHandler);
-
+  
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Range, sensor_msgs::Range, sensor_msgs::Range> sonarSyncPolicy;
-
+  
   message_filters::Synchronizer<sonarSyncPolicy> sonarSync(sonarSyncPolicy(10), sonarLeftSubscriber, sonarCenterSubscriber, sonarRightSubscriber);
   sonarSync.registerCallback(boost::bind(&sonarHandler, _1, _2, _3));
-
+  
   tfListener = new tf::TransformListener();
   std_msgs::String msg;
   msg.data = "Log Started";
   infoLogPublisher.publish(msg);
-
+  
   stringstream ss;
   ss << "Rover start delay set to " << startDelayInSeconds << " seconds";
   msg.data = ss.str();
@@ -338,14 +262,11 @@ int main(int argc, char **argv) {
 
   timerStartTime = time(0);
 
+    
 
-ss << "IP Address running"<< ip<< "Identity";
-        msg.data = ss.str();
-        infoLogPublisher.publish(msg);
-
-
+  
   ros::spin();
-
+  
   return EXIT_SUCCESS;
 }
 
@@ -360,29 +281,13 @@ void behaviourStateMachine(const ros::TimerEvent&)
 if (timerTimeElapsed > 31)
 {
     CNMFirstBoot();               //StartOrder
-
 }
 
-if (timerTimeElapsed > 33)
-{
-    sortOrder();
-}
-
-/*if (sortTrigger1 == false)
-{
-  if (sortTrigger2)
-  {
-     sortTrigger2 = false;
-        std_msgs::String msg;
-        msg.data = "sortTriggerHandler running ";
-        infoLogPublisher.publish(msg);
-  }
-}*/
   std_msgs::String stateMachineMsg;
-
+  
   // time since timerStartTime was set to current time
   timerTimeElapsed = time(0) - timerStartTime;
-
+  
   // init code goes here. (code that runs only once at start of
   // auto mode but wont work in main goes here)
   if (!initilized)
@@ -390,11 +295,6 @@ if (timerTimeElapsed > 33)
 
     if (timerTimeElapsed > startDelayInSeconds)
     {
-
-
-
-      //Create a new location object for CNMAVGCenter
-    //  geometry_msgs::Pose2D location;
 
       // initialization has run
       initilized = true;
@@ -404,26 +304,19 @@ if (timerTimeElapsed > 33)
       centerOdom.y = 1.3 * sin(currentLocation.theta);
       centerOdom.theta = centerLocation.theta;
       logicController.SetCenterLocationOdom(centerOdom);
-
+      
       Point centerMap;
-      centerMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
-      centerMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
+      centerMap.x = currentLocationMap.x + (1.3 * cos(currentLocationMap.theta));
+      centerMap.y = currentLocationMap.y + (1.3 * sin(currentLocationMap.theta));
       centerMap.theta = centerLocationMap.theta;
       logicController.SetCenterLocationMap(centerMap);
-
-      Point cnmCenterMap;
-      //cnmCenterMap = currentLocationMap;
-      cnmCenterMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
-      cnmCenterMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
-      cnmCenterMap.theta = centerLocationMap.theta;
-      CNMAVGCenter(cnmCenterMap);
-
+      
       centerLocationMap.x = centerMap.x;
       centerLocationMap.y = centerMap.y;
-
+      
       centerLocationOdom.x = centerOdom.x;
       centerLocationOdom.y = centerOdom.y;
-
+      
       startTime = getROSTimeInMilliSecs();
     }
 
@@ -431,26 +324,26 @@ if (timerTimeElapsed > 33)
     {
       return;
     }
-
+    
   }
 
   // Robot is in automode
   if (currentMode == 2 || currentMode == 3)
   {
-
+    
     humanTime();
-
+    
     //update the time used by all the controllers
     logicController.SetCurrentTimeInMilliSecs( getROSTimeInMilliSecs() );
-
+    
     //update center location
     logicController.SetCenterLocationOdom( updateCenterLocation() );
-
+    
     //ask logic controller for the next set of actuator commands
     result = logicController.DoWork();
-
+    
     bool wait = false;
-
+    
     //if a wait behaviour is thrown sit and do nothing untill logicController is ready
     if (result.type == behavior)
     {
@@ -459,25 +352,25 @@ if (timerTimeElapsed > 33)
         wait = true;
       }
     }
-
+    
     //do this when wait behaviour happens
     if (wait)
     {
       sendDriveCommand(0.0,0.0);
       std_msgs::Float32 angle;
-
+      
       angle.data = prevFinger;
       fingerAnglePublish.publish(angle);
       angle.data = prevWrist;
       wristAnglePublish.publish(angle);
     }
-
+    
     //normally interpret logic controllers actuator commands and deceminate them over the appropriate ROS topics
     else
     {
-
+      
       sendDriveCommand(result.pd.left,result.pd.right);
-
+      
 
       //Alter finger and wrist angle is told to reset with last stored value if currently has -1 value
       std_msgs::Float32 angle;
@@ -495,16 +388,16 @@ if (timerTimeElapsed > 33)
         prevWrist = result.wristAngle;
       }
     }
-
+    
     //publishHandeling here
     //logicController.getPublishData(); suggested
-
-
+    
+    
     //adds a blank space between sets of debugging data to easily tell one tick from the next
     cout << endl;
-
+    
   }
-
+  
   // mode is NOT auto
   else
   {
@@ -550,7 +443,7 @@ void sendDriveCommand(double left, double right)
 {
   velocity.linear.x = left,
       velocity.angular.z = right;
-
+  
   // publish the drive commands
   driveControlPublish.publish(velocity);
 }
@@ -562,10 +455,10 @@ void sendDriveCommand(double left, double right)
 void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& message) {
 
   // Don't pass April tag data to the logic controller if the robot is not in autonomous mode.
-  // This is to make sure autonomous behaviours are not triggered while the rover is in manual mode.
-  if(currentMode == 0 || currentMode == 1)
-  {
-    return;
+  // This is to make sure autonomous behaviours are not triggered while the rover is in manual mode. 
+  if(currentMode == 0 || currentMode == 1) 
+  { 
+    return; 
   }
 
   if (message->detections.size() > 0) {
@@ -590,10 +483,10 @@ void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& messag
 							    tagPose.pose.orientation.w ) );
       tags.push_back(loc);
     }
-
+    
     logicController.SetAprilTags(tags);
   }
-
+  
 }
 
 void modeHandler(const std_msgs::UInt8::ConstPtr& message) {
@@ -608,27 +501,27 @@ void modeHandler(const std_msgs::UInt8::ConstPtr& message) {
 }
 
 void sonarHandler(const sensor_msgs::Range::ConstPtr& sonarLeft, const sensor_msgs::Range::ConstPtr& sonarCenter, const sensor_msgs::Range::ConstPtr& sonarRight) {
-
+  
   logicController.SetSonarData(sonarLeft->range, sonarCenter->range, sonarRight->range);
-
+  
 }
 
 void odometryHandler(const nav_msgs::Odometry::ConstPtr& message) {
   //Get (x,y) location directly from pose
   currentLocation.x = message->pose.pose.position.x;
   currentLocation.y = message->pose.pose.position.y;
-
+  
   //Get theta rotation by converting quaternion orientation to pitch/roll/yaw
   tf::Quaternion q(message->pose.pose.orientation.x, message->pose.pose.orientation.y, message->pose.pose.orientation.z, message->pose.pose.orientation.w);
   tf::Matrix3x3 m(q);
   double roll, pitch, yaw;
   m.getRPY(roll, pitch, yaw);
   currentLocation.theta = yaw;
-
+  
   linearVelocity = message->twist.twist.linear.x;
   angularVelocity = message->twist.twist.angular.z;
-
-
+  
+  
   Point currentLoc;
   currentLoc.x = currentLocation.x;
   currentLoc.y = currentLocation.y;
@@ -638,7 +531,7 @@ void odometryHandler(const nav_msgs::Odometry::ConstPtr& message) {
 }
 
 // Allows a virtual fence to be defined and enabled or disabled through ROS
-void virtualFenceHandler(const std_msgs::Float32MultiArray& message)
+void virtualFenceHandler(const std_msgs::Float32MultiArray& message) 
 {
   // Read data from the message array
   // The first element is an integer indicating the shape type
@@ -646,7 +539,7 @@ void virtualFenceHandler(const std_msgs::Float32MultiArray& message)
   // 1 = circle
   // 2 = rectangle
   int shape_type = static_cast<int>(message.data[0]); // Shape type
-
+  
   if (shape_type == 0)
   {
     logicController.setVirtualFenceOff();
@@ -657,22 +550,22 @@ void virtualFenceHandler(const std_msgs::Float32MultiArray& message)
     Point center;
     center.x = message.data[1]; // Range center x
     center.y = message.data[2]; // Range center y
-
+    
     // If the shape type is "circle" then element 4 is the radius, if rectangle then width
     switch ( shape_type )
     {
     case 1: // Circle
     {
       if ( message.data.size() != 4 ) throw ROSAdapterRangeShapeInvalidTypeException("Wrong number of parameters for circle shape type in ROSAdapter.cpp:virtualFenceHandler()");
-      float radius = message.data[3];
+      float radius = message.data[3]; 
       logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
       break;
     }
-    case 2: // Rectangle
+    case 2: // Rectangle 
     {
       if ( message.data.size() != 5 ) throw ROSAdapterRangeShapeInvalidTypeException("Wrong number of parameters for rectangle shape type in ROSAdapter.cpp:virtualFenceHandler()");
-      float width = message.data[3];
-      float height = message.data[4];
+      float width = message.data[3]; 
+      float height = message.data[4]; 
       logicController.setVirtualFenceOn( new RangeRectangle(center, width, height) );
       break;
     }
@@ -688,17 +581,17 @@ void mapHandler(const nav_msgs::Odometry::ConstPtr& message) {
   //Get (x,y) location directly from pose
   currentLocationMap.x = message->pose.pose.position.x;
   currentLocationMap.y = message->pose.pose.position.y;
-
+  
   //Get theta rotation by converting quaternion orientation to pitch/roll/yaw
   tf::Quaternion q(message->pose.pose.orientation.x, message->pose.pose.orientation.y, message->pose.pose.orientation.z, message->pose.pose.orientation.w);
   tf::Matrix3x3 m(q);
   double roll, pitch, yaw;
   m.getRPY(roll, pitch, yaw);
   currentLocationMap.theta = yaw;
-
+  
   linearVelocity = message->twist.twist.linear.x;
   angularVelocity = message->twist.twist.angular.z;
-
+  
   Point curr_loc;
   curr_loc.x = currentLocationMap.x;
   curr_loc.y = currentLocationMap.y;
@@ -771,46 +664,46 @@ long int getROSTimeInMilliSecs()
 {
   // Get the current time according to ROS (will be zero for simulated clock until the first time message is recieved).
   ros::Time t = ros::Time::now();
-
+  
   // Convert from seconds and nanoseconds to milliseconds.
   return t.sec*1e3 + t.nsec/1e6;
-
+  
 }
 
 
 Point updateCenterLocation()
 {
   transformMapCentertoOdom();
-
+  
   Point tmp;
   tmp.x = centerLocationOdom.x;
   tmp.y = centerLocationOdom.y;
-
+  
   return tmp;
 }
 
 void transformMapCentertoOdom()
 {
-
+  
   // map frame
   geometry_msgs::PoseStamped mapPose;
-
+  
   // setup msg to represent the center location in map frame
   mapPose.header.stamp = ros::Time::now();
-
+  
   mapPose.header.frame_id = publishedName + "/map";
   mapPose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, centerLocationMap.theta);
   mapPose.pose.position.x = centerLocationMap.x;
   mapPose.pose.position.y = centerLocationMap.y;
   geometry_msgs::PoseStamped odomPose;
   string x = "";
-
+  
   try
   { //attempt to get the transform of the center point in map frame to odom frame.
     tfListener->waitForTransform(publishedName + "/map", publishedName + "/odom", ros::Time::now(), ros::Duration(1.0));
     tfListener->transformPose(publishedName + "/odom", mapPose, odomPose);
   }
-
+  
   catch(tf::TransformException& ex) {
     ROS_INFO("Received an exception trying to transform a point from \"map\" to \"odom\": %s", ex.what());
     x = "Exception thrown " + (string)ex.what();
@@ -821,31 +714,31 @@ void transformMapCentertoOdom()
     infoLogPublisher.publish(msg);
     cout << msg.data << endl;
   }
-
+  
   // Use the position and orientation provided by the ros transform.
   centerLocationMapRef.x = odomPose.pose.position.x; //set centerLocation in odom frame
   centerLocationMapRef.y = odomPose.pose.position.y;
-
+  
  // cout << "x ref : "<< centerLocationMapRef.x << " y ref : " << centerLocationMapRef.y << endl;
-
+  
   float xdiff = centerLocationMapRef.x - centerLocationOdom.x;
   float ydiff = centerLocationMapRef.y - centerLocationOdom.y;
-
+  
   float diff = hypot(xdiff, ydiff);
-
+  
   if (diff > drift_tolerance)
   {
     centerLocationOdom.x += xdiff/diff;
     centerLocationOdom.y += ydiff/diff;
   }
-
+  
   //cout << "center x diff : " << centerLocationMapRef.x - centerLocationOdom.x << " center y diff : " << centerLocationMapRef.y - centerLocationOdom.y << endl;
   //cout << hypot(centerLocationMapRef.x - centerLocationOdom.x, centerLocationMapRef.y - centerLocationOdom.y) << endl;
-
+          
 }
 
 void humanTime() {
-
+  
   float timeDiff = (getROSTimeInMilliSecs()-startTime)/1e3;
   if (timeDiff >= 60) {
     minutesTime++;
@@ -856,7 +749,7 @@ void humanTime() {
     }
   }
   timeDiff = floor(timeDiff*10)/10;
-
+  
   double intP, frac;
   frac = modf(timeDiff, &intP);
   timeDiff -= frac;
@@ -864,7 +757,7 @@ void humanTime() {
   if (frac > 9) {
     frac = 0;
   }
-
+  
   //cout << "System has been Running for :: " << hoursTime << " : hours " << minutesTime << " : minutes " << timeDiff << "." << frac << " : seconds" << endl; //you can remove or comment this out it just gives indication something is happening to the log file
 }
 
@@ -911,7 +804,7 @@ void startOrderHandler(const std_msgs::String& msg)		//startOrder
      std_msgs::String msg;
         msg.data = "count is 6";
         infoLogPublisher.publish(msg);
-   }
+   }	
 }
 
 void CNMFirstBoot()
@@ -921,114 +814,11 @@ void CNMFirstBoot()
     if(testCount)		//startOrder
     {
         testCount = false;
-      /*  std_msgs::String msg;
+        std_msgs::String msg;
         msg.data = "first boot running ";
-        infoLogPublisher.publish(msg);*/
+        infoLogPublisher.publish(msg);
 
-	startOrderPub.publish(msg);
+	startOrderPub.publish(msg);	
     }
 }
 
-void sortOrder()
-{
-  if(sortTrigger)
-  {
-    sortTrigger = false;
-    std::string str(ip);
-    msg.data = ip;
-    sortOrderPub.publish(msg);
-   //     msg.data = "sortTrigger is running ";
-   //     infoLogPublisher.publish(msg);
-  }
-}
-
-void sortOrderHandler(const std_msgs::String& msg)
-{
- stringstream ff;
- ff << "MY ID is: "<< cnmStartOrder << "  ID received: " << msg;
-        Msg.data = ff.str();
-        infoLogPublisher.publish(Msg);
-  // sortTrigger1 = false;
-}
-
-void CNMAVGCenter(Point newCenter)
-{
-
-    //NOTES ON THIS FUNCTION:
-    //- Takes a derived center point, puts it in an array of other
-    //  center points and averages them together... allowing us to
-    //  build a more dynamic center location (able to adjust with drift)
-
-    std_msgs::String msg;
-    msg.data = "Averaging Center GPS Location";
-    infoLogPublisher.publish(msg);
-
-    const int ASIZE = 20; //was 10 for 2017
-    static int index = 0;
-
-    static bool reached10 = false;
-
-    if(purgeMap)
-    {
-	purgeMap = false;
-	reached10 = false;
-
-	index = 0;
-    }
-
-    CenterXCoordinates[index] = newCenter.x;
-    CenterYCoordinates[index] = newCenter.y;
-
-    if(index >= ASIZE)
-    {
-        if(!reached10) { reached10 = true; }
-        index = 0;
-    }
-    else
-    {
-        index++;
-    }
-
-    float avgX = 0;
-    float avgY = 0;
-
-    if(!reached10)
-    {
-        for(int i = 0; i < index; i++)
-        {
-            avgX += CenterXCoordinates[i];
-            avgY += CenterYCoordinates[i];
-        }
-
-        avgX = (avgX / index);
-        avgY = (avgY / index);
-    }
-    else
-    {
-        for(int i = 0; i < ASIZE; i++)
-        {
-            avgX += CenterXCoordinates[i];
-            avgY += CenterYCoordinates[i];
-        }
-
-        avgX = (avgX / ASIZE);
-        avgY = (avgY / ASIZE);
-    }
-
-    //UPDATE CENTER LOCATION
-    //---------------------------------------------
-    cnmCenterLocation.x = (avgX);
-    cnmCenterLocation.y = (avgY);
-    logicController.cnmSetCenterLocationMAP(cnmCenterLocation);
-
-
-    msg.data = "Averaging Center GPS Location Complete!";
-    infoLogPublisher.publish(msg);
-
-    stringstream ff;
-    ff << "Center Postion is X: "<< cnmCenterLocation.x << "  Y: " << cnmCenterLocation.y;
-           Msg.data = ff.str();
-           infoLogPublisher.publish(Msg);
-
-
-}

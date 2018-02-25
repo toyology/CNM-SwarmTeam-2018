@@ -76,14 +76,14 @@ Result DropOffController::DoWork() {
     return result;
   }
 
-  double distanceToCenter = hypot(this->centerLocation.x - this->currentLocation.x, this->centerLocation.y - this->currentLocation.y);
+  double distanceToCenter = hypot(cnmCenterLocation.x - this->currentLocation.x, cnmCenterLocation.y - this->currentLocation.y);
 
   //check to see if we are driving to the center location or if we need to drive in a circle and look.
   if (distanceToCenter > collectionPointVisualDistance && !circularCenterSearching && (count == 0)) {
 
     result.type = waypoint;
     result.wpts.waypoints.clear();
-    result.wpts.waypoints.push_back(this->centerLocation);
+    result.wpts.waypoints.push_back(cnmCenterLocation);
     startWaypoint = false;
     isPrecisionDriving = false;
 
@@ -98,8 +98,8 @@ Result DropOffController::DoWork() {
 
     //sets a goal that is 60cm from the centerLocation and spinner
     //radians counterclockwise from being purly along the x-axis.
-    nextSpinPoint.x = centerLocation.x + (initialSpinSize + spinSizeIncrease) * cos(spinner);
-    nextSpinPoint.y = centerLocation.y + (initialSpinSize + spinSizeIncrease) * sin(spinner);
+    nextSpinPoint.x = cnmCenterLocation.x + (initialSpinSize + spinSizeIncrease) * cos(spinner);
+    nextSpinPoint.y = cnmCenterLocation.y + (initialSpinSize + spinSizeIncrease) * sin(spinner);
     nextSpinPoint.theta = atan2(nextSpinPoint.y - currentLocation.y, nextSpinPoint.x - currentLocation.x);
 
     result.type = waypoint;
@@ -226,7 +226,7 @@ Result DropOffController::DoWork() {
       centerApproach = false;
 
       result.type = waypoint;
-      result.wpts.waypoints.push_back(this->centerLocation);
+      result.wpts.waypoints.push_back(this->cnmCenterLocation);
       if (isPrecisionDriving) {
         result.type = behavior;
         result.b = prevProcess;
@@ -356,8 +356,14 @@ bool DropOffController::IsChangingMode() {
   return isPrecisionDriving;
 }
 
+
 void DropOffController::SetCenterLocation(Point center) {
   centerLocation = center;
+}
+
+
+void DropOffController::cnmSetCenterLocation(Point center) {
+  cnmCenterLocation = center;
 }
 
 void DropOffController::SetCurrentLocation(Point current) {

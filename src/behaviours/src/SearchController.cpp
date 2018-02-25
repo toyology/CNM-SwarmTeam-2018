@@ -5,6 +5,7 @@ int cnmSquareSearchLoop = 0;
 
 SearchController::SearchController() {
   rng = new random_numbers::RandomNumberGenerator();
+
   currentLocation.x = 0;
   currentLocation.y = 0;
   currentLocation.theta = 0;
@@ -13,6 +14,9 @@ SearchController::SearchController() {
   centerLocation.y = 0;
   centerLocation.theta = 0;
   result.PIDMode = FAST_PID;
+
+  //cnmCenterLocation.x = 0;                                    //set default center to (0,0)
+  //cnmCenterLocation.y = 0;
 
   result.fingerAngle = M_PI/2;
   result.wristAngle = M_PI/4;
@@ -28,7 +32,7 @@ void SearchController::Reset() {
 Result SearchController::DoWork() {
 
   // Print info everytime the search loop is used
-cout << "SEARCH SquareSearchStartPositionler is doing work"  << endl;
+cout << "SEARCH - SquareSearchStartPosition is doing work"  << endl;
 
 //if for some reason searchLoop goes out of bounds, reset
 //---------------------------------------------
@@ -57,16 +61,16 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
     {
       cout << "SEARCH - going to first corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
-      searchLocation.x = centerLocation.x + 2.5;
-      searchLocation.y = centerLocation.y + 2.5;
+      searchLocation.x = cnmCenterLocation.x + 2.5;
+      searchLocation.y = cnmCenterLocation.y + 2.5;
       cnmSquareSearchLoop = 1;
     }
     else if (cnmSquareSearchLoop == 1) //corner in quaderant 2
     {
       cout << "SEARCH - going to second corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
-      searchLocation.x = centerLocation.x - 2.5;
-      searchLocation.y = centerLocation.y + 2.5;
+      searchLocation.x = cnmCenterLocation.x - 2.5;
+      searchLocation.y = cnmCenterLocation.y + 2.5;
       cnmSquareSearchLoop = 2;
 
     }
@@ -74,8 +78,8 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
     {
       cout << "SEARCH - going to third corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
-      searchLocation.x = centerLocation.x - 2.5;
-      searchLocation.y = centerLocation.y - 2.5;
+      searchLocation.x = cnmCenterLocation.x - 2.5;
+      searchLocation.y = cnmCenterLocation.y - 2.5;
       cnmSquareSearchLoop = 3;
 
     }
@@ -83,8 +87,8 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
     {
       cout << "SEARCH - going to forth corner of square"  << endl;
       searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
-      searchLocation.x = centerLocation.x + 2.5;
-      searchLocation.y = centerLocation.y - 2.5;
+      searchLocation.x = cnmCenterLocation.x + 2.5;
+      searchLocation.y = cnmCenterLocation.y - 2.5;
       cnmSquareSearchLoop = 0;
 
     }
@@ -149,6 +153,12 @@ Result SearchController::DoWork() {
 }
 
 */
+
+void SearchController::cnmSetCenterLocation(Point newLocation)
+{
+    cnmCenterLocation = newLocation;
+
+}
 
 void SearchController::SetCenterLocation(Point centerLocation) {
 

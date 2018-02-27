@@ -118,6 +118,7 @@ Result result;
 
 std_msgs::String msg;
 std_msgs::String Msg;			//sortOrder
+swarmie_msgs::Waypoint wmsg;
 
 
 geometry_msgs::Twist velocity;
@@ -136,6 +137,8 @@ ros::Publisher heartbeatPublisher;
 // Publishes swarmie_msgs::Waypoint messages on "/<robot>/waypooints"
 // to indicate when waypoints have been reached.
 ros::Publisher waypointFeedbackPublisher;
+//AJH added publisher declaration for manual waypoint publisher
+ros::Publisher manualWaypointPublisher;
 ros::Publisher startOrderPub;		//startOrder
 ros::Publisher sortOrderPub;		//SortOrder
 
@@ -305,6 +308,7 @@ int main(int argc, char **argv) {
   infoLogPublisher = mNH.advertise<std_msgs::String>("/infoLog", 1, true);
   driveControlPublish = mNH.advertise<geometry_msgs::Twist>((publishedName + "/driveControl"), 10);
   heartbeatPublisher = mNH.advertise<std_msgs::String>((publishedName + "/behaviour/heartbeat"), 1, true);
+  manualWaypointPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints/cmd"), 10, true);
   waypointFeedbackPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints"), 1, true);
 
    startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
@@ -360,7 +364,13 @@ void behaviourStateMachine(const ros::TimerEvent&)
 if (timerTimeElapsed > 31)
 {
     CNMFirstBoot();               //StartOrder
-
+    //Point wp; 
+    //AJH: empty for now because our subscriber calls a handler
+    //that actually supplies the point (for now)
+    wmsg.ACTION_ADD;
+    wmsg.x = 0;
+    wmsg.y = 0;
+    manualWaypointPublisher.publish(wmsg);
 }
 
 if (timerTimeElapsed > 33)
@@ -743,12 +753,19 @@ void publishStatusTimerEventHandler(const ros::TimerEvent&) {
 
 void manualWaypointHandler(const swarmie_msgs::Waypoint& message) {
   Point wp;
-  wp.x = message.x;
-  wp.y = message.y;
+  wp.x = currentLocation.x;//message.x;
+  wp.y = currentLocation.y;//message.y;
   wp.theta = 0.0;
   switch(message.action) {
   case swarmie_msgs::Waypoint::ACTION_ADD:
     logicController.AddManualWaypoint(wp, message.id);
+    infoLogPublisher.publish("Entering manual mode to reach waypoint ");
+    //AJH: if we add a manual waypoint, we switch to manual mode
+    logicController.SetModeManual();
+  case swarmie_msgs::Waypoint::ACTION_REACHED:
+    //AJH: if we have reached our waypoint, we switch to auto mode
+    infoLogPublisher.publish("Entering auto mode after reaching waypoint ");
+    logicController.SetModeAuto();
     break;
   case swarmie_msgs::Waypoint::ACTION_REMOVE:
     logicController.RemoveManualWaypoint(message.id);
@@ -935,7 +952,8 @@ void sortOrder()
   {
     sortTrigger = false;
     std::string str(ip);
-    msg.data = ip;
+    msg.data = publishedName;
+    //msg.data = ip;
     sortOrderPub.publish(msg);
    //     msg.data = "sortTrigger is running ";
    //     infoLogPublisher.publish(msg);
@@ -944,11 +962,22 @@ void sortOrder()
 
 void sortOrderHandler(const std_msgs::String& msg)
 {
- stringstream ff;
- ff << "MY ID is: "<< cnmStartOrder << "  ID received: " << msg;
-        Msg.data = ff.str();
-        infoLogPublisher.publish(Msg);
+  string msg_name = string(msg.data);
+  if(msg_name == publishedName){
+    Msg.data = string("That's my published name! I am " + publishedName);
+    infoLogPublisher.publish(Msg);
+  }
+  else{
+    Msg.data = string("Boo, that's not my published name! I'm not " + msg_name + ", I'm " + publishedName);
+    infoLogPublisher.publish(Msg);
+  }
+  /*
+  stringstream ff;
+  ff << "MY ID is: "<< cnmStartOrder << "  ID received: " << msg;
+    Msg.data = ff.str();
+    infoLogPublisher.publish(Msg);
   // sortTrigger1 = false;
+  */
 }
 
 void CNMAVGCenter(Point newCenter)

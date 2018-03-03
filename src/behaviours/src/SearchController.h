@@ -29,6 +29,7 @@ public:
   void SetSuccesfullPickup();
 
   void cnmSetCenterLocation(Point cnmCenterLocation);
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation);
 
   //sets the value for initial point in search pattern
   int SquareSearchStartPosition();
@@ -41,6 +42,8 @@ private:
 
   //Averaged GPS center location
   Point cnmCenterLocation;
+
+  Point cnmCurrentLocation;
 
   random_numbers::RandomNumberGenerator* rng;
   Point currentLocation;

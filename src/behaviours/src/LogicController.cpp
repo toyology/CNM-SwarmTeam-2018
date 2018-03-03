@@ -290,7 +290,7 @@ void LogicController::controllerInterconnect()
 void LogicController::SetPositionData(Point currentLocation)
 {
   searchController.SetCurrentLocation(currentLocation);
-  //dropOffController.SetCurrentLocation(currentLocation);
+  dropOffController.SetCurrentLocation(currentLocation);
   obstacleController.setCurrentLocation(currentLocation);
   driveController.SetCurrentLocation(currentLocation);
   manualWaypointController.SetCurrentLocation(currentLocation);
@@ -301,6 +301,8 @@ void LogicController::SetMapPositionData(Point currentLocation)
 {
   range_controller.setCurrentLocation(currentLocation);
   dropOffController.SetCurrentLocation(currentLocation);
+  //driveController.SetCurrentLocation(currentLocation);
+  //searchController.SetCurrentLocation(currentLocation);
 }
 
 void LogicController::SetVelocityData(float linearVelocity, float angularVelocity)
@@ -329,8 +331,8 @@ void LogicController::SetSonarData(float left, float center, float right)
 // Called once by RosAdapter in guarded init
 void LogicController::SetCenterLocationOdom(Point centerLocationOdom)
 {
-  //searchController.SetCenterLocation(centerLocationOdom);  //used in Base Code
-  //dropOffController.SetCenterLocation(centerLocationOdom); //used in Base Code
+  searchController.SetCenterLocation(centerLocationOdom);  //used in Base Code
+  dropOffController.SetCenterLocation(centerLocationOdom); //used in Base Code
 }
 
 void LogicController::AddManualWaypoint(Point manualWaypoint, int waypoint_id)
@@ -365,11 +367,7 @@ void LogicController::SetCenterLocationMap(Point centerLocationMap)
   //dropOffController.SetCenterLocation(centerLocationMap); //CNM added since Base Code
 }
 
-void LogicController::cnmSetCenterLocationMAP(Point cnmCenterLocation)
-{
-  searchController.cnmSetCenterLocation(cnmCenterLocation); //CNM added since Base Code
-  dropOffController.cnmSetCenterLocation(cnmCenterLocation); //CNM added since Base Code
-}
+
 
 
 void LogicController::SetCurrentTimeInMilliSecs( long int time )
@@ -396,4 +394,20 @@ void LogicController::SetModeManual()
     control_queue = priority_queue<PrioritizedController>();
     driveController.Reset();
   }
+}
+
+void LogicController::cnmSetCenterLocationMAP(Point cnmCenterLocation)
+{
+  searchController.cnmSetCenterLocation(cnmCenterLocation); //CNM added since Base Code
+  dropOffController.cnmSetCenterLocation(cnmCenterLocation); //CNM added since Base Code
+}
+
+void LogicController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
+{
+  searchController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+  driveController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+  /*dropOffController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+  obstacleController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+  manualWaypointController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+  */
 }

@@ -20,6 +20,8 @@ public:
   void SetVelocityData(float linearVelocity,float angularVelocity);
   void SetCurrentLocation(Point currentLocation) {this->currentLocation = currentLocation;}
 
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation) {cnmCurrentLocation = cnmAVGCurrentLocation;}
+
 private:
 
   Result result;
@@ -49,6 +51,11 @@ private:
   Point centerLocation;
   Point centerLocationMap;
   Point centerLocationOdom;
+
+  //Averaged GPS center location
+  Point cnmCenterLocation;
+  //Averaged GPS current location
+  Point cnmCurrentLocation;
 
   vector<Point> waypoints;
 

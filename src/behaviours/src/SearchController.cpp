@@ -15,8 +15,9 @@ SearchController::SearchController() {
   centerLocation.theta = 0;
   result.PIDMode = FAST_PID;
 
-  //cnmCenterLocation.x = 0;                                    //set default center to (0,0)
-  //cnmCenterLocation.y = 0;
+  cnmCurrentLocation.x = 0;
+  cnmCurrentLocation.y = 0;
+  cnmCurrentLocation.theta = 0;
 
   result.fingerAngle = M_PI/2;
   result.wristAngle = M_PI/4;
@@ -26,9 +27,12 @@ void SearchController::Reset() {
   result.reset = false;
 }
 
+
+
 /*
  * This code implements a basic square walk search for 12.8.17 checkin.
  */
+
 Result SearchController::DoWork() {
 
   // Print info everytime the search loop is used
@@ -101,9 +105,9 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
  }
 
 
-/*
-// This code implements the UNM basic random walk search.
 
+// This code implements the UNM basic random walk search.
+/*
 Result SearchController::DoWork() {
 
   if (!result.wpts.waypoints.empty()) {
@@ -151,8 +155,8 @@ Result SearchController::DoWork() {
   }
 
 }
-
 */
+
 
 void SearchController::cnmSetCenterLocation(Point newLocation)
 {
@@ -193,6 +197,11 @@ bool SearchController::HasWork() {
 
 void SearchController::SetSuccesfullPickup() {
   succesfullPickup = true;
+}
+
+void SearchController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
+{
+  cnmCurrentLocation = cnmAVGCurrentLocation;
 }
 
 //decides which quaderant to send the rover based on it current heading + 180deg

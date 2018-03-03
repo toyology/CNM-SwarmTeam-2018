@@ -195,14 +195,30 @@ long int getROSTimeInMilliSecs();
 /* CNM added code --------------------------------------------------------------
 ------------------------------------------------------------------------------*/
 
+
 Point cnmCenterLocation;
-void CNMAVGCenter(Point cnmCenterLocation);       //Avergages derived center locations
+bool resetMap = false;
+void CNMAVGCenter();       //Avergages derived center locations
 bool purgeMap = false;
+
+//ARRAYS FOR CENTER
+
+const int ASIZE = 100;
+int centerIndex = 0;
+bool maxedCenterArray = false;
+
+const int CASIZE = 30;
+
+float avgCurrentCoordsX[CASIZE];
+float avgCurrentCoordsY[CASIZE];
+
+//Point cnmCurrentLocation;
+void CNMCurrentLocationAVG();      //Averages current location on map
 
 
 //Actual Center Array
-float CenterXCoordinates[20]; //was 10 for 2017
-float CenterYCoordinates[20]; //was 10 for 2017
+float CenterXCoordinates[ASIZE];
+float CenterYCoordinates[ASIZE];
 
 
 //INITIAL NEST SEARCH
@@ -392,10 +408,6 @@ if (timerTimeElapsed > 33)
     {
 
 
-
-      //Create a new location object for CNMAVGCenter
-    //  geometry_msgs::Pose2D location;
-
       // initialization has run
       initilized = true;
       //TODO: this just sets center to 0 over and over and needs to change
@@ -411,12 +423,19 @@ if (timerTimeElapsed > 33)
       centerMap.theta = centerLocationMap.theta;
       logicController.SetCenterLocationMap(centerMap);
 
-      Point cnmCenterMap;
-      //cnmCenterMap = currentLocationMap;
+      /*Point cnmCenterMap;
       cnmCenterMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
       cnmCenterMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
       cnmCenterMap.theta = centerLocationMap.theta;
-      CNMAVGCenter(cnmCenterMap);
+      */
+
+      for(int i = 0; i < ASIZE; i++)
+	    {
+		//flood x and y coordinates
+	        CenterXCoordinates[i] = currentLocationMap.x;
+    	    CenterYCoordinates[i] = currentLocationMap.y;
+	    }
+      CNMAVGCenter();
 
       centerLocationMap.x = centerMap.x;
       centerLocationMap.y = centerMap.y;
@@ -589,6 +608,8 @@ void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& messag
 							    tagPose.pose.orientation.z,
 							    tagPose.pose.orientation.w ) );
       tags.push_back(loc);
+
+
     }
 
     logicController.SetAprilTags(tags);
@@ -951,69 +972,42 @@ void sortOrderHandler(const std_msgs::String& msg)
   // sortTrigger1 = false;
 }
 
-void CNMAVGCenter(Point newCenter)
+void CNMAVGCenter()
 {
 
-    //NOTES ON THIS FUNCTION:
-    //- Takes a derived center point, puts it in an array of other
-    //  center points and averages them together... allowing us to
-    //  build a more dynamic center location (able to adjust with drift)
+  if(resetMap)
+  {
+  resetMap = false;
+  maxedCenterArray = false;
+  centerIndex = 0;
+  }
+
 
     std_msgs::String msg;
-    msg.data = "Averaging Center GPS Location";
+    msg.data = "Averaging Center Location";
     infoLogPublisher.publish(msg);
 
-    const int ASIZE = 20; //was 10 for 2017
-    static int index = 0;
-
-    static bool reached10 = false;
-
-    if(purgeMap)
+    if(centerIndex >= ASIZE)
     {
-	purgeMap = false;
-	reached10 = false;
-
-	index = 0;
-    }
-
-    CenterXCoordinates[index] = newCenter.x;
-    CenterYCoordinates[index] = newCenter.y;
-
-    if(index >= ASIZE)
-    {
-        if(!reached10) { reached10 = true; }
-        index = 0;
+        if(!maxedCenterArray) {  maxedCenterArray = true; }
+        centerIndex = 0;
     }
     else
     {
-        index++;
+        centerIndex++;
     }
 
     float avgX = 0;
     float avgY = 0;
 
-    if(!reached10)
+    for(int i = 0; i < ASIZE; i++)
     {
-        for(int i = 0; i < index; i++)
-        {
-            avgX += CenterXCoordinates[i];
-            avgY += CenterYCoordinates[i];
-        }
-
-        avgX = (avgX / index);
-        avgY = (avgY / index);
+       avgX += CenterXCoordinates[i];
+       avgY += CenterYCoordinates[i];
     }
-    else
-    {
-        for(int i = 0; i < ASIZE; i++)
-        {
-            avgX += CenterXCoordinates[i];
-            avgY += CenterYCoordinates[i];
-        }
 
         avgX = (avgX / ASIZE);
         avgY = (avgY / ASIZE);
-    }
 
     //UPDATE CENTER LOCATION
     //---------------------------------------------
@@ -1022,13 +1016,61 @@ void CNMAVGCenter(Point newCenter)
     logicController.cnmSetCenterLocationMAP(cnmCenterLocation);
 
 
-    msg.data = "Averaging Center GPS Location Complete!";
+    stringstream ss;
+    ss << "Center Position X: " <<   cnmCenterLocation.x << " Y: " << cnmCenterLocation.y << "  Index: " << centerIndex << endl;
+    msg.data = ss.str();
     infoLogPublisher.publish(msg);
 
-    stringstream ff;
-    ff << "Center Postion is X: "<< cnmCenterLocation.x << "  Y: " << cnmCenterLocation.y;
-           Msg.data = ff.str();
-           infoLogPublisher.publish(Msg);
 
 
+}
+
+void CNMCurrentLocationAVG()
+{
+
+  std_msgs::String msg;
+  msg.data = "Averaging Current Location";
+  infoLogPublisher.publish(msg);
+
+    static int index = 0;
+
+    if(index < CASIZE)
+    {
+
+	     avgCurrentCoordsX[index] = currentLocationMap.x;
+    	 avgCurrentCoordsY[index] = currentLocationMap.y;
+
+	index++;
+
+	//return false;
+    }
+    else
+    {
+	float x = 0, y = 0;
+	for(int i = 0; i < CASIZE; i++)
+	{
+	    x += avgCurrentCoordsX[i];
+	    y += avgCurrentCoordsY[i];
+	}
+
+	x = x/CASIZE;
+	y = y/CASIZE;
+
+  Point cnmAVGCurrentLocation;
+	cnmAVGCurrentLocation.x = x;
+	cnmAVGCurrentLocation.y = y;
+  cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+  logicController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+
+  stringstream ff;
+  ff << "Current Postion Average is X: "<< cnmAVGCurrentLocation.x << "  Y: " << cnmAVGCurrentLocation.y << "  Theta: " << currentLocation.theta << endl;
+         Msg.data = ff.str();
+         infoLogPublisher.publish(Msg);
+
+
+	index = 0;
+	//return true;
+    }
 }

@@ -69,8 +69,10 @@ Result DropOffController::DoWork() {
       result.fingerAngle = M_PI_2; //open fingers
       result.wristAngle = 0; //raise wrist
 
-      result.pd.cmdVel = -0.3;
+      result.pd.cmdVel = -0.2; //CNM 2017 CHANGED FROM .3
       result.pd.cmdAngularError = 0.0;
+
+
     }
 
     return result;
@@ -226,7 +228,7 @@ Result DropOffController::DoWork() {
       centerApproach = false;
 
       result.type = waypoint;
-      result.wpts.waypoints.push_back(this->cnmCenterLocation);
+      result.wpts.waypoints.push_back(this->centerLocation);
       if (isPrecisionDriving) {
         result.type = behavior;
         result.b = prevProcess;
@@ -300,12 +302,15 @@ void DropOffController::SetTargetData(vector<Tag> tags) {
       for (int i = 0; i < tags.size(); i++) {
         if (tags[i].getID() == 256) {
 
+
           // checks if tag is on the right or left side of the image
           if (tags[i].getPositionX() + cameraOffsetCorrection > 0) {
             countRight++;
+            cout << "TAG - Right Tag Orientation X: "<< tags[i].getOrientationX() << "  Y: " << tags[i].getOrientationY() << "  Z: " << tags[i].getOrientationZ() << endl;
 
           } else {
             countLeft++;
+
           }
         }
       }

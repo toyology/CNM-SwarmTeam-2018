@@ -48,6 +48,7 @@ public:
   void SetCenterLocationMap(Point centerLocationMap);
 
   void cnmSetCenterLocationMAP(Point cnmCenterLocation);
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation);
 
 
   // Passthrough for providing new waypoints to the

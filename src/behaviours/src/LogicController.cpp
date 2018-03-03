@@ -229,7 +229,8 @@ void LogicController::ProcessData()
     // under manual control only the manual waypoint controller is active
     prioritizedControllers = {
       PrioritizedController{-1, (Controller*)(&searchController)},
-      PrioritizedController{-1, (Controller*)(&obstacleController)},
+      //TODO: enable obstacle controller for test of manual waypoint controller
+      PrioritizedController{4, (Controller*)(&obstacleController)},
       PrioritizedController{-1, (Controller*)(&pickUpController)},
       PrioritizedController{-1, (Controller*)(&range_controller)},
       PrioritizedController{-1, (Controller*)(&dropOffController)},
@@ -256,6 +257,8 @@ void LogicController::controllerInterconnect()
 
   if (processState == PROCCESS_STATE_SEARCHING)
   {
+    //TODO: add logic to get a manual waypoint and add it as a 
+    //pt to which we want to travel
 
     //obstacle needs to know if the center ultrasound should be ignored
     if(pickUpController.GetIgnoreCenter())
@@ -338,6 +341,9 @@ void LogicController::SetCenterLocationOdom(Point centerLocationOdom)
 void LogicController::AddManualWaypoint(Point manualWaypoint, int waypoint_id)
 {
   manualWaypointController.AddManualWaypoint(manualWaypoint, waypoint_id);
+  //TODO: added switch into PROCESS_STATE_MANUAL
+  //processState = PROCESS_STATE_MANUAL;
+
 }
 
 void LogicController::RemoveManualWaypoint(int waypoint_id)

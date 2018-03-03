@@ -218,6 +218,7 @@ float avgCurrentCoordsY[CASIZE];
 //Point cnmCurrentLocation;
 void CNMCurrentLocationAVG();      //Averages current location on map
 
+void CNMProjectCenter();
 
 //Actual Center Array
 float CenterXCoordinates[ASIZE];
@@ -380,7 +381,7 @@ void behaviourStateMachine(const ros::TimerEvent&)
 if (timerTimeElapsed > 31)
 {
     CNMFirstBoot();               //StartOrder
-    //Point wp; 
+    //Point wp;
     //AJH: empty for now because our subscriber calls a handler
     //that actually supplies the point (for now)
     wmsg.ACTION_ADD;
@@ -780,14 +781,15 @@ void manualWaypointHandler(const swarmie_msgs::Waypoint& message) {
   switch(message.action) {
   case swarmie_msgs::Waypoint::ACTION_ADD:
     logicController.AddManualWaypoint(wp, message.id);
-    infoLogPublisher.publish("Entering manual mode to reach waypoint ");
+    //infoLogPublisher.publish("Entering manual mode to reach waypoint ");
     //AJH: if we add a manual waypoint, we switch to manual mode
-    logicController.SetModeManual();
-  case swarmie_msgs::Waypoint::ACTION_REACHED:
-    //AJH: if we have reached our waypoint, we switch to auto mode
-    infoLogPublisher.publish("Entering auto mode after reaching waypoint ");
-    logicController.SetModeAuto();
+    //logicController.SetModeManual();
     break;
+//  case swarmie_msgs::Waypoint::ACTION_REACHED:
+    //AJH: if we have reached our waypoint, we switch to auto mode
+    //infoLogPublisher.publish("Entering auto mode after reaching waypoint ");
+    //logicController.SetModeAuto();
+  //  break;
   case swarmie_msgs::Waypoint::ACTION_REMOVE:
     logicController.RemoveManualWaypoint(message.id);
     break;
@@ -1000,6 +1002,31 @@ void sortOrderHandler(const std_msgs::String& msg)
   // sortTrigger1 = false;
   */
 }
+
+void CNMProjectCenter()
+{
+    //NOTES ON THIS FUNCTION:
+    //- Takes current point and projects it out to where the center SHOULD be
+    //- Calls CNMAVGCenter to avg new center location searchController new avg center
+
+    if(resetMap)
+    {
+	resetMap = false;
+	maxedCenterArray = false;
+	centerIndex = 0;
+    }
+
+    //NORMALIZE ANGLEf
+    double normCurrentAngle = angles::normalize_angle_positive(currentLocationMap.theta);
+
+    //CenterXCoordinates[centerIndex] = currentLocation.x + (CENTEROFFSET * (cos(normCurrentAngle)));
+    CenterXCoordinates[centerIndex] = currentLocationMap.x;
+    //CenterYCoordinates[centerIndex] = currentLocation.y + (CENTEROFFSET * (sin(normCurrentAngle)));
+    CenterYCoordinates[centerIndex] = currentLocationMap.y;
+
+    CNMAVGCenter();
+}
+
 
 void CNMAVGCenter()
 {

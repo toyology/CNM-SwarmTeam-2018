@@ -384,10 +384,10 @@ if (timerTimeElapsed > 31)
     //Point wp;
     //AJH: empty for now because our subscriber calls a handler
     //that actually supplies the point (for now)
-    wmsg.ACTION_ADD;
-    wmsg.x = 0;
-    wmsg.y = 0;
-    manualWaypointPublisher.publish(wmsg);
+    //wmsg.ACTION_ADD;
+    //wmsg.x = 0;
+    //wmsg.y = 0;
+    //manualWaypointPublisher.publish(wmsg);
 }
 
 if (timerTimeElapsed > 33)
@@ -446,7 +446,7 @@ if (timerTimeElapsed > 33)
 	        CenterXCoordinates[i] = currentLocationMap.x;
     	    CenterYCoordinates[i] = currentLocationMap.y;
 	    }
-      CNMAVGCenter();
+      CNMProjectCenter();
 
       centerLocationMap.x = centerMap.x;
       centerLocationMap.y = centerMap.y;
@@ -734,7 +734,7 @@ void mapHandler(const nav_msgs::Odometry::ConstPtr& message) {
   Point curr_loc;
   curr_loc.x = currentLocationMap.x;
   curr_loc.y = currentLocationMap.y;
-  curr_loc.theta = currentLocationMap.theta;
+  curr_loc.theta = currentLocation.theta; // was currentLocationMap
   logicController.SetMapPositionData(curr_loc);
   logicController.SetMapVelocityData(linearVelocity, angularVelocity);
 }
@@ -775,8 +775,8 @@ void publishStatusTimerEventHandler(const ros::TimerEvent&) {
 
 void manualWaypointHandler(const swarmie_msgs::Waypoint& message) {
   Point wp;
-  wp.x = currentLocation.x;//message.x;
-  wp.y = currentLocation.y;//message.y;
+  wp.x = message.x;//message.x;
+  wp.y = message.y;//message.y;
   wp.theta = 0.0;
   switch(message.action) {
   case swarmie_msgs::Waypoint::ACTION_ADD:

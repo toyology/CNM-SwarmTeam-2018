@@ -230,7 +230,7 @@ void LogicController::ProcessData()
     prioritizedControllers = {
       PrioritizedController{-1, (Controller*)(&searchController)},
       //TODO: enable obstacle controller for test of manual waypoint controller
-      PrioritizedController{4, (Controller*)(&obstacleController)},
+      PrioritizedController{-1, (Controller*)(&obstacleController)},
       PrioritizedController{-1, (Controller*)(&pickUpController)},
       PrioritizedController{-1, (Controller*)(&range_controller)},
       PrioritizedController{-1, (Controller*)(&dropOffController)},
@@ -257,7 +257,7 @@ void LogicController::controllerInterconnect()
 
   if (processState == PROCCESS_STATE_SEARCHING)
   {
-    //TODO: add logic to get a manual waypoint and add it as a 
+    //TODO: add logic to get a manual waypoint and add it as a
     //pt to which we want to travel
 
     //obstacle needs to know if the center ultrasound should be ignored
@@ -295,7 +295,7 @@ void LogicController::SetPositionData(Point currentLocation)
   searchController.SetCurrentLocation(currentLocation);
   dropOffController.SetCurrentLocation(currentLocation);
   obstacleController.setCurrentLocation(currentLocation);
-  driveController.SetCurrentLocation(currentLocation);
+  //driveController.SetCurrentLocation(currentLocation);
   manualWaypointController.SetCurrentLocation(currentLocation);
 }
 
@@ -410,6 +410,7 @@ void LogicController::cnmSetCenterLocationMAP(Point cnmCenterLocation)
 
 void LogicController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
 {
+  driveController.SetCurrentLocation(cnmAVGCurrentLocation);
   searchController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   driveController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   /*dropOffController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);

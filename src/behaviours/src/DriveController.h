@@ -4,10 +4,13 @@
 #include "PID.h"
 #include "Controller.h"
 #include <angles/angles.h>
+#include <vector>
 
 class DriveController : virtual Controller
 {
 public:
+
+
   DriveController();
   ~DriveController();
 
@@ -19,6 +22,7 @@ public:
   void SetResultData(Result result) {this->result = result;}
   void SetVelocityData(float linearVelocity,float angularVelocity);
   void SetCurrentLocation(Point currentLocation) {this->currentLocation = currentLocation;}
+  
 
   void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation) {cnmCurrentLocation = cnmAVGCurrentLocation;}
 
@@ -56,6 +60,9 @@ private:
   Point cnmCenterLocation;
   //Averaged GPS current location
   Point cnmCurrentLocation;
+
+
+
 
   vector<Point> waypoints;
 

@@ -22,9 +22,14 @@ public:
   void SetResultData(Result result) {this->result = result;}
   void SetVelocityData(float linearVelocity,float angularVelocity);
   void SetCurrentLocation(Point currentLocation) {this->currentLocation = currentLocation;}
-  
 
+  bool getCurrLocAVG();
   void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation) {cnmCurrentLocation = cnmAVGCurrentLocation;}
+
+  bool CNMCurrentLocationAVG();
+
+  //static void cnmSetAvgCurrentLocation2(Point cnmAVGCurrentLocation) {cnmCurrentLocation = cnmAVGCurrentLocation;}
+
 
 private:
 
@@ -55,6 +60,7 @@ private:
   Point centerLocation;
   Point centerLocationMap;
   Point centerLocationOdom;
+
 
   //Averaged GPS center location
   Point cnmCenterLocation;

@@ -1,3 +1,5 @@
+
+
 #include "DriveController.h"
 
 
@@ -88,8 +90,22 @@ Result DriveController::DoWork()
     //while we have waypoints and they are tooClose to drive to
     while (!waypoints.empty() && tooClose)
     {
+      //getCurrLocAVG();
+
+      /*
+      bool averaged = false;
+      averaged = DriveController::CNMCurrentLocationAVG();
+
+      if(averaged){
+      cout << "AVERAGED - Averaged location complete" << endl;
+      }
+
+      if(averaged)
+      {
+
+        */
       //check next waypoint for distance
-      if (hypot(waypoints.back().x-currentLocation.x, waypoints.back().y-currentLocation.y) < waypointTolerance)
+      if (hypot(waypoints.back().x-cnmCurrentLocation.x, waypoints.back().y-cnmCurrentLocation.y) < waypointTolerance)
       {
         //if too close remove it
         waypoints.pop_back();
@@ -99,6 +115,7 @@ Result DriveController::DoWork()
         //this waypoint is far enough to be worth driving to
         tooClose = false;
       }
+      
     }
 
     //if we are out of waypoints then interupt and return to logic controller
@@ -111,6 +128,8 @@ Result DriveController::DoWork()
     }
     else
     {
+
+
       //select setpoint for heading and begin driving to the next waypoint
       stateMachineState = STATE_MACHINE_ROTATE;
       waypoints.back().theta = atan2(waypoints.back().y - currentLocation.y, waypoints.back().x - currentLocation.x);
@@ -122,8 +141,11 @@ Result DriveController::DoWork()
     }
   }
 
+
   case STATE_MACHINE_ROTATE:
   {
+
+
 
     // Calculate angle between currentLocation.theta and waypoints.front().theta
     // Rotate left or right depending on sign of angle
@@ -140,7 +162,7 @@ Result DriveController::DoWork()
     result.pd.setPointVel = 0.0;
     //Calculate absolute value of angle
 
-    float abs_error = fabs(angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta));
+    float abs_error = fabs(angles::shortest_angular_distance(cnmCurrentLocation.theta, waypoints.back().theta));
 
     // If angle > rotateOnlyAngleTolerance radians rotate but dont drive forward.
     if (abs_error > rotateOnlyAngleTolerance)
@@ -160,10 +182,13 @@ Result DriveController::DoWork()
 
       //fall through on purpose.
     }
+
   }
 
   case STATE_MACHINE_SKID_STEER:
   {
+
+
       // Calculate angle between currentLocation.x/y and waypoints.back().x/y
       // Drive forward
       // Stay in this state until angle is at least PI/2
@@ -197,6 +222,7 @@ Result DriveController::DoWork()
       // move back to transform step
       stateMachineState = STATE_MACHINE_WAYPOINTS;
     }
+
 
     break;
   }
@@ -489,4 +515,52 @@ PIDConfig DriveController::constYawConfig() {
 
   return config;
 
+}
+
+bool DriveController::CNMCurrentLocationAVG()
+{
+
+  const int CASIZE = 30;
+
+  float avgCurrentCoordsX[CASIZE];
+  float avgCurrentCoordsY[CASIZE];
+
+    static int index = 0;
+
+    if(index < CASIZE)
+    {
+
+	     avgCurrentCoordsX[index] = currentLocation.x;
+    	 avgCurrentCoordsY[index] = currentLocation.y;
+
+	index++;
+
+	return false;
+    }
+    else
+    {
+	float x = 0, y = 0;
+	for(int i = 0; i < CASIZE; i++)
+	{
+	    x += avgCurrentCoordsX[i];
+	    y += avgCurrentCoordsY[i];
+	}
+
+	x = x/CASIZE;
+	y = y/CASIZE;
+
+  Point cnmAVGCurrentLocation;
+	cnmAVGCurrentLocation.x = x;
+	cnmAVGCurrentLocation.y = y;
+  cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+  DriveController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  //logicController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  //staticTest();
+
+	index = 0;
+	return true;
+    }
 }

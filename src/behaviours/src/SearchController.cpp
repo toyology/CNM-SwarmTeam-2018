@@ -21,10 +21,16 @@ SearchController::SearchController() {
 
   result.fingerAngle = M_PI/2;
   result.wristAngle = M_PI/4;
+
+  delete rng; //managing memory leak from 2017 #neveragain
+
 }
 
 void SearchController::Reset() {
   result.reset = false;
+
+
+
 }
 
 

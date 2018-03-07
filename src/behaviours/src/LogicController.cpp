@@ -299,7 +299,7 @@ void LogicController::controllerInterconnect()
 // Recieves position in the world inertial frame (should rename to SetOdomPositionData)
 void LogicController::SetPositionData(Point currentLocation)
 {
-  searchController.SetCurrentLocation(currentLocation);
+  //searchController.SetCurrentLocation(currentLocation);
   //dropOffController.SetCurrentLocation(currentLocation);
   obstacleController.setCurrentLocation(currentLocation);
   //driveController.SetCurrentLocation(currentLocation);
@@ -312,7 +312,7 @@ void LogicController::SetMapPositionData(Point currentLocation)
   range_controller.setCurrentLocation(currentLocation);
   dropOffController.SetCurrentLocation(currentLocation);
   driveController.SetCurrentLocation(currentLocation);
-  //searchController.SetCurrentLocation(currentLocation);
+  searchController.SetCurrentLocation(currentLocation);
   //locationController.setCurrentLocation(currentLocation);
 }
 

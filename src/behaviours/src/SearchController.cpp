@@ -44,6 +44,10 @@ Result SearchController::DoWork() {
   // Print info everytime the search loop is used
 cout << "SEARCH - SquareSearchStartPosition is doing work"  << endl;
 
+//Setup get cnm current location avgerage
+static bool averaged = false;
+averaged = SearchController::CNMCurrentLocationAVG();
+
 //if for some reason searchLoop goes out of bounds, reset
 //---------------------------------------------
 if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
@@ -51,14 +55,22 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
   cout << "SEARCH - search loop out of bounds, reset"  << endl;
  }
 
+ if(averaged)
+ {
+   averaged = false;
+   cout << "AVERAGED - Averaged Current location complete" << endl;
+ }
+
    //clear intitial waypoints if any
    if (!result.wpts.waypoints.empty()) {
-      if (hypot(result.wpts.waypoints[0].x-currentLocation.x, result.wpts.waypoints[0].y-currentLocation.y) < 0.10) {
+      if (hypot(result.wpts.waypoints[0].x-cnmCurrentLocation.x, result.wpts.waypoints[0].y-cnmCurrentLocation.y) < 0.10) {
         //attemptCount = 0;
       }
     }
     result.type = waypoint;
     Point  searchLocation;
+
+
 
     //find which corner of the square to goto first based on 180deg of current heading
     if (first_waypoint)
@@ -67,41 +79,40 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
       first_waypoint = false;
       cnmSquareSearchLoop = SearchController::SquareSearchStartPosition();
     }
-    else if (cnmSquareSearchLoop == 0) //corner in quaderant 1
+    else if (cnmSquareSearchLoop == 0) //corner in quadrant 1
     {
       cout << "SEARCH - going to first corner of square"  << endl;
-      searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
+      searchLocation.theta = atan2((searchLocation.y - cnmCurrentLocation.y), (searchLocation.x - cnmCurrentLocation.x));
       searchLocation.x = cnmCenterLocation.x + 2.5;
       searchLocation.y = cnmCenterLocation.y + 2.5;
       cnmSquareSearchLoop = 1;
     }
-    else if (cnmSquareSearchLoop == 1) //corner in quaderant 2
+    else if (cnmSquareSearchLoop == 1) //corner in quadrant 2
     {
       cout << "SEARCH - going to second corner of square"  << endl;
-      searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
+      searchLocation.theta = atan2((searchLocation.y - cnmCurrentLocation.y), (searchLocation.x - cnmCurrentLocation.x));
       searchLocation.x = cnmCenterLocation.x - 2.5;
       searchLocation.y = cnmCenterLocation.y + 2.5;
       cnmSquareSearchLoop = 2;
-
     }
-    else if (cnmSquareSearchLoop == 2) //corner in quaderant 3
+    else if (cnmSquareSearchLoop == 2) //corner in quadrant 3
     {
       cout << "SEARCH - going to third corner of square"  << endl;
-      searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
+      searchLocation.theta = atan2((searchLocation.y - cnmCurrentLocation.y), (searchLocation.x - cnmCurrentLocation.x));
       searchLocation.x = cnmCenterLocation.x - 2.5;
       searchLocation.y = cnmCenterLocation.y - 2.5;
       cnmSquareSearchLoop = 3;
 
     }
-    else if (cnmSquareSearchLoop == 3) //corner in quaderant 4
+    else if (cnmSquareSearchLoop == 3) //corner in quadrant 4
     {
       cout << "SEARCH - going to forth corner of square"  << endl;
-      searchLocation.theta = atan2((searchLocation.y - currentLocation.y), (searchLocation.x - currentLocation.x));
+      searchLocation.theta = atan2((searchLocation.y - cnmCurrentLocation.y), (searchLocation.x - cnmCurrentLocation.x));
       searchLocation.x = cnmCenterLocation.x + 2.5;
       searchLocation.y = cnmCenterLocation.y - 2.5;
       cnmSquareSearchLoop = 0;
-
     }
+
 
     result.wpts.waypoints.clear();
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), searchLocation);
@@ -233,4 +244,49 @@ int SearchController::SquareSearchStartPosition()
     }
 
     return searchLoop;
+  }
+
+
+  bool SearchController::CNMCurrentLocationAVG()
+  {
+
+    const int CASIZE = 30;
+
+    float avgCurrentCoordsX[CASIZE];
+    float avgCurrentCoordsY[CASIZE];
+
+      static int index = 0;
+
+      if(index < CASIZE)
+      {
+
+  	     avgCurrentCoordsX[index] = currentLocation.x;
+      	 avgCurrentCoordsY[index] = currentLocation.y;
+
+  	index++;
+
+  	return false;
+      }
+      else
+      {
+  	float x = 0, y = 0;
+  	for(int i = 0; i < CASIZE; i++)
+  	{
+  	    x += avgCurrentCoordsX[i];
+  	    y += avgCurrentCoordsY[i];
+  	}
+
+  	x = x/CASIZE;
+  	y = y/CASIZE;
+
+    Point cnmAVGCurrentLocation;
+  	cnmAVGCurrentLocation.x = x;
+  	cnmAVGCurrentLocation.y = y;
+    cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+    SearchController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  	index = 0;
+  	return true;
+      }
   }

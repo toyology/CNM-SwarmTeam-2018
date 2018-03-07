@@ -97,12 +97,21 @@ Result DropOffController::DoWork() {
   else if (timerTimeElapsed >= 2)//spin search for center
   {
     Point nextSpinPoint;
+    //Setup get cnm current location avgerage
+    static bool averaged = false;
+    averaged = DropOffController::CNMCurrentLocationAVG();
+
+    if(averaged)
+    {
+      averaged = false;
+      cout << "AVERAGED - Averaged Current location complete" << endl;
+    }
 
     //sets a goal that is 60cm from the centerLocation and spinner
     //radians counterclockwise from being purly along the x-axis.
     nextSpinPoint.x = cnmCenterLocation.x + (initialSpinSize + spinSizeIncrease) * cos(spinner);
     nextSpinPoint.y = cnmCenterLocation.y + (initialSpinSize + spinSizeIncrease) * sin(spinner);
-    nextSpinPoint.theta = atan2(nextSpinPoint.y - currentLocation.y, nextSpinPoint.x - currentLocation.x);
+    nextSpinPoint.theta = atan2(nextSpinPoint.y - cnmCurrentLocation.y, nextSpinPoint.x - cnmCurrentLocation.x);
 
     result.type = waypoint;
     result.wpts.waypoints.clear();
@@ -386,4 +395,53 @@ void DropOffController::SetBlockBlockingUltrasound(bool blockBlock) {
 void DropOffController::SetCurrentTimeInMilliSecs( long int time )
 {
   current_time = time;
+}
+
+void DropOffController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
+{
+  cnmCurrentLocation = cnmAVGCurrentLocation;
+}
+
+bool DropOffController::CNMCurrentLocationAVG()
+{
+
+  const int CASIZE = 30;
+
+  float avgCurrentCoordsX[CASIZE];
+  float avgCurrentCoordsY[CASIZE];
+
+    static int index = 0;
+
+    if(index < CASIZE)
+    {
+
+       avgCurrentCoordsX[index] = currentLocation.x;
+       avgCurrentCoordsY[index] = currentLocation.y;
+
+  index++;
+
+  return false;
+    }
+    else
+    {
+  float x = 0, y = 0;
+  for(int i = 0; i < CASIZE; i++)
+  {
+      x += avgCurrentCoordsX[i];
+      y += avgCurrentCoordsY[i];
+  }
+
+  x = x/CASIZE;
+  y = y/CASIZE;
+
+  Point cnmAVGCurrentLocation;
+  cnmAVGCurrentLocation.x = x;
+  cnmAVGCurrentLocation.y = y;
+  cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+  DropOffController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  index = 0;
+  return true;
+    }
 }

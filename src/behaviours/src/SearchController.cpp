@@ -22,7 +22,7 @@ SearchController::SearchController() {
   result.fingerAngle = M_PI/2;
   result.wristAngle = M_PI/4;
 
-  delete rng; //managing memory leak from 2017 #neveragain
+  //delete rng; //managing memory leak from 2017 #neveragain
 
 }
 
@@ -39,6 +39,7 @@ void SearchController::Reset() {
  * This code implements a basic square walk search for 12.8.17 checkin.
  */
 
+/*
 Result SearchController::DoWork() {
 
   // Print info everytime the search loop is used
@@ -120,59 +121,73 @@ if (cnmSquareSearchLoop < 0 || cnmSquareSearchLoop > 3) {
     return result;
 
  }
+*/
+
 
 
 
 // This code implements the UNM basic random walk search.
-/*
+
 Result SearchController::DoWork() {
 
-  if (!result.wpts.waypoints.empty()) {
-    if (hypot(result.wpts.waypoints[0].x-currentLocation.x, result.wpts.waypoints[0].y-currentLocation.y) < 0.15) {
-      attemptCount = 0;
-    }
-  }
+//Setup get cnm current location avgerage
+static bool averaged = false;
+averaged = SearchController::CNMCurrentLocationAVG();
 
-  if (attemptCount > 0 && attemptCount < 5) {
-    attemptCount++;
-    if (succesfullPickup) {
-      succesfullPickup = false;
-      attemptCount = 1;
-    }
-    return result;
+
+if(averaged)
+{
+  averaged = false;
+  cout << "AVERAGED - Averaged Current location complete" << endl;
+}
+
+
+if (!result.wpts.waypoints.empty()) {
+  if (hypot(result.wpts.waypoints[0].x-currentLocation.x, result.wpts.waypoints[0].y-currentLocation.y) < 0.15) {
+    attemptCount = 0;
   }
-  else if (attemptCount >= 5 || attemptCount == 0)
-  {
+}
+
+if (attemptCount > 0 && attemptCount < 5) {
+  attemptCount++;
+  if (succesfullPickup) {
+    succesfullPickup = false;
     attemptCount = 1;
+  }
+  return result;
+}
+else if (attemptCount >= 5 || attemptCount == 0)
+{
+  attemptCount = 1;
 
 
-    result.type = waypoint;
-    Point  searchLocation;
+  result.type = waypoint;
+  Point  searchLocation;
 
-    //select new position 50 cm from current location
-    if (first_waypoint)
-    {
-      first_waypoint = false;
-      searchLocation.theta = currentLocation.theta + M_PI;
-      searchLocation.x = currentLocation.x + (0.5 * cos(searchLocation.theta));
-      searchLocation.y = currentLocation.y + (0.5 * sin(searchLocation.theta));
-    }
-    else
-    {
-      //select new heading from Gaussian distribution around current heading
-      searchLocation.theta = rng->gaussian(currentLocation.theta, 0.785398); //45 degrees in radians
-      searchLocation.x = currentLocation.x + (0.5 * cos(searchLocation.theta));
-      searchLocation.y = currentLocation.y + (0.5 * sin(searchLocation.theta));
-    }
+  //select new position 50 cm from current location
+  if (first_waypoint)
+  {
+    first_waypoint = false;
+    searchLocation.theta = currentLocation.theta + M_PI;
+    searchLocation.x = cnmCurrentLocation.x + (0.5 * cos(searchLocation.theta));
+    searchLocation.y = cnmCurrentLocation.y + (0.5 * sin(searchLocation.theta));
+  }
+  else
+  {
+    //select new heading from Gaussian distribution around current heading
+    searchLocation.theta = rng->gaussian(currentLocation.theta, 0.785398); //45 degrees in radians
+    searchLocation.x = cnmCurrentLocation.x + (0.5 * cos(searchLocation.theta));
+    searchLocation.y = cnmCurrentLocation.y + (0.5 * sin(searchLocation.theta));
+  }
 
-    result.wpts.waypoints.clear();
-    result.wpts.waypoints.insert(result.wpts.waypoints.begin(), searchLocation);
+  result.wpts.waypoints.clear();
+  result.wpts.waypoints.insert(result.wpts.waypoints.begin(), searchLocation);
 
-    return result;
+  return result;
   }
 
 }
-*/
+
 
 
 void SearchController::cnmSetCenterLocation(Point newLocation)

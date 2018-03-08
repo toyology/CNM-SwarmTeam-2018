@@ -179,23 +179,26 @@ Result DropOffController::DoWork() {
     result.type = precisionDriving;
 
     //otherwise turn till tags on both sides of image then drive straight
-    if (left && right) {
+    if ((countLeft - 6) <= 0 && (countRight - 6) <=0) { //CNM 2017 values Go straight in
       result.pd.cmdVel = searchVelocity;
       result.pd.cmdAngularError = 0.0;
     }
-    else if (right) {
+    else if (countLeft > (countRight - 6)) { //CNM 2017 values Turn Right
       result.pd.cmdVel = -0.1 * turnDirection;
       result.pd.cmdAngularError = -centeringTurnRate*turnDirection;
     }
-    else if (left){
+    else if (countLeft < (countRight - 6)){ //CNM 2017 values Turn Left
       result.pd.cmdVel = -0.1 * turnDirection;
       result.pd.cmdAngularError = centeringTurnRate*turnDirection;
     }
+
+    /*
     else
     {
       result.pd.cmdVel = searchVelocity;
       result.pd.cmdAngularError = 0.0;
     }
+    */
 
     //must see greater than this many tags before assuming we are driving into the center and not along an edge.
     if (count > centerTagThreshold)

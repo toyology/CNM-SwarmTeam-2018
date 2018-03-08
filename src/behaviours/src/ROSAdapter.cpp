@@ -119,7 +119,10 @@ Result result;
 std_msgs::String msg;
 std_msgs::String Msg;			//sortOrder
 swarmie_msgs::Waypoint wmsg;
-
+std_msgs::Float32MultiArray fence_msg;
+//AJH added variables:
+bool isReady = false;
+vector<std::string> swarmieNames; // = new vector<string>();
 
 geometry_msgs::Twist velocity;
 char host[128];
@@ -134,13 +137,18 @@ ros::Publisher wristAnglePublish;
 ros::Publisher infoLogPublisher;
 ros::Publisher driveControlPublish;
 ros::Publisher heartbeatPublisher;
-// Publishes swarmie_msgs::Waypoint messages on "/<robot>/waypooints"
+// Publishes swarmie_msgs::Waypoint messages on "/<robot>/waypoints"
 // to indicate when waypoints have been reached.
 ros::Publisher waypointFeedbackPublisher;
 //AJH added publisher declaration for manual waypoint publisher
 ros::Publisher manualWaypointPublisher;
+
+//CNM publishers
 ros::Publisher startOrderPub;		//startOrder
 ros::Publisher sortOrderPub;		//SortOrder
+ros::Publisher resourceFencePub;
+ros::Publisher obstacleWaypointPub;
+ros::Publisher miscWaypointPub;
 
 // Subscribers
 ros::Subscriber joySubscriber;
@@ -151,9 +159,16 @@ ros::Subscriber mapSubscriber;
 ros::Subscriber virtualFenceSubscriber;
 // manualWaypointSubscriber listens on "/<robot>/waypoints/cmd" for
 // swarmie_msgs::Waypoint messages.
+
 ros::Subscriber manualWaypointSubscriber;
 ros::Subscriber startOrderSub;			//startOrder
 ros::Subscriber sortOrderSub;			//SortOrder
+ros::Subscriber resourceFenceSub;
+ros::Subscriber broadcastResourceSub;
+ros::Subscriber obstacleWaypointSub;
+ros::Subscriber broadcastObstacleSub;
+ros::Subscriber miscWaypointSub;
+ros::Subscriber broadcastMiscSub;
 
 // Timers
 ros::Timer stateMachineTimer;
@@ -186,19 +201,24 @@ void behaviourStateMachine(const ros::TimerEvent&);
 void publishStatusTimerEventHandler(const ros::TimerEvent& event);
 void publishHeartBeatTimerEventHandler(const ros::TimerEvent& event);
 void sonarHandler(const sensor_msgs::Range::ConstPtr& sonarLeft, const sensor_msgs::Range::ConstPtr& sonarCenter, const sensor_msgs::Range::ConstPtr& sonarRight);
+
+//CNM handlers
 void startOrderHandler(const std_msgs::String& msg);			//startOrder
 void sortOrderHandler(const std_msgs::String& msg);	//SortOrder
+void resourceFenceHandler(const std_msgs::Float32MultiArray& fence_msg);
+void obstacleMsgHandler(const std_msgs::String& msg);
+void miscHandler(const std_msgs::String& msg);
+void testStuff();
 
 // Converts the time passed as reported by ROS (which takes Gazebo simulation rate into account) into milliseconds as an integer.
 long int getROSTimeInMilliSecs();
 
-
-
-
 /* CNM added code --------------------------------------------------------------
 ------------------------------------------------------------------------------*/
-
-
+//for publishing stuff
+//set recipient to 'broadcast' initially
+string currentRecipientName = "broadcast";
+string currentSenderName = "";
 Point cnmCenterLocation;
 bool resetMap = false;
 void CNMAVGCenter();       //Avergages derived center locations
@@ -315,8 +335,30 @@ int main(int argc, char **argv) {
   message_filters::Subscriber<sensor_msgs::Range> sonarCenterSubscriber(mNH, (publishedName + "/sonarCenter"), 10);
   message_filters::Subscriber<sensor_msgs::Range> sonarRightSubscriber(mNH, (publishedName + "/sonarRight"), 10);
 
+  //CNM CODE
+  startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
+  sortOrderSub = mNH.subscribe("sortOrder", 1000, &sortOrderHandler);				//sortOrder
+  //AJH: each swarmie has an individual and broadcast subscriber, because some messages are targeted 
+  //but some messages will need to be sent out to all swarmies at once
+  resourceFenceSub = mNH.subscribe((publishedName+"/resource"), 1000, resourceFenceHandler);
+  broadcastResourceSub = mNH.subscribe(("broadcast/resource"), 1000, resourceFenceHandler);
+  obstacleWaypointSub  = mNH.subscribe((publishedName+"/obstacle"), 100, &obstacleMsgHandler);
+  broadcastObstacleSub = mNH.subscribe(("broadcast/obstacle"), 100, &obstacleMsgHandler);
+  miscWaypointSub = mNH.subscribe((publishedName+"/misc"), 1000, &miscHandler);
+  broadcastMiscSub = mNH.subscribe(("broadcast/misc"), 1000, &miscHandler);
+
+
+  //CNM CODE
   startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
-    sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
+  sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
+  //AJH: each swarmie publishes to a single swarmie based on roles, etc.
+  //the variable 'currentRecipientName' holds the name of the swarmie we're trying to send to
+  //manualWaypointPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints/cmd"), 10, true);  
+  resourceFencePub = mNH.advertise<swarmie_msgs::Waypoint>((currentRecipientName+"/resource"), 10, true);
+  obstacleWaypointPub = mNH.advertise<swarmie_msgs::Waypoint>((currentRecipientName+"/obstacle"), 10, true);
+  //zombie waypoints
+  miscWaypointPub = mNH.advertise<swarmie_msgs::Waypoint>((currentRecipientName+"/misc"),10,true);
+
 
   status_publisher = mNH.advertise<std_msgs::String>((publishedName + "/status"), 1, true);
   stateMachinePublish = mNH.advertise<std_msgs::String>((publishedName + "/state_machine"), 1, true);
@@ -328,8 +370,7 @@ int main(int argc, char **argv) {
   manualWaypointPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints/cmd"), 10, true);
   waypointFeedbackPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints"), 1, true);
 
-   startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
-   sortOrderSub = mNH.subscribe("sortOrder", 1000, &sortOrderHandler);				//sortOrder
+
 
   publish_status_timer = mNH.createTimer(ros::Duration(status_publish_interval), publishStatusTimerEventHandler);
   stateMachineTimer = mNH.createTimer(ros::Duration(behaviourLoopTimeStep), behaviourStateMachine);
@@ -381,18 +422,17 @@ void behaviourStateMachine(const ros::TimerEvent&)
 if (timerTimeElapsed > 31)
 {
     CNMFirstBoot();               //StartOrder
-    //Point wp;
-    //AJH: empty for now because our subscriber calls a handler
-    //that actually supplies the point (for now)
-    //wmsg.ACTION_ADD;
-    //wmsg.x = 0;
-    //wmsg.y = 0;
-    //manualWaypointPublisher.publish(wmsg);
+
 }
 
 if (timerTimeElapsed > 33)
 {
     sortOrder();
+}
+
+if(isReady)
+{
+    testStuff();
 }
 
 /*if (sortTrigger1 == false)
@@ -778,18 +818,21 @@ void manualWaypointHandler(const swarmie_msgs::Waypoint& message) {
   wp.x = message.x;//message.x;
   wp.y = message.y;//message.y;
   wp.theta = 0.0;
+  std_msgs::String temp_msg;
   switch(message.action) {
   case swarmie_msgs::Waypoint::ACTION_ADD:
     logicController.AddManualWaypoint(wp, message.id);
-    //infoLogPublisher.publish("Entering manual mode to reach waypoint ");
+    temp_msg.data = "Entering manual mode to reach waypoint ";
+    infoLogPublisher.publish(temp_msg);
     //AJH: if we add a manual waypoint, we switch to manual mode
-    //logicController.SetModeManual();
+    logicController.SetModeManual();
     break;
-//  case swarmie_msgs::Waypoint::ACTION_REACHED:
+  case swarmie_msgs::Waypoint::ACTION_REACHED:
     //AJH: if we have reached our waypoint, we switch to auto mode
-    //infoLogPublisher.publish("Entering auto mode after reaching waypoint ");
-    //logicController.SetModeAuto();
-  //  break;
+    temp_msg.data = "Entering auto mode after reaching waypoint";
+    infoLogPublisher.publish(temp_msg);
+    logicController.SetModeAuto();
+    break;
   case swarmie_msgs::Waypoint::ACTION_REMOVE:
     logicController.RemoveManualWaypoint(message.id);
     break;
@@ -909,13 +952,87 @@ void humanTime() {
 }
 
 
+void testStuff(){
+//publish a test fence to all swarmies to try a follow-the-leader type movement
+    
+	//circle fence takes 4 args:
+	//first, a type: 1 
+	//second, an x val for center
+	//third, a y val for center
+	//fourth, a radius
+	int type = 1;
+	float x = currentLocation.x-2;
+    float y = currentLocation.y-2;
+    float radius = 1.5;
+    fence_msg.data[0] = type;
+    fence_msg.data[1] = x;
+    fence_msg.data[2] = y;
+    fence_msg.data[3] = radius;
+    //publish it to myself first
+    currentRecipientName = publishedName;
+	resourceFencePub.publish(fence_msg);
+
+    for(int i = 0; i < swarmieNames.size(); i++)
+    {
+      //sets name = each heard swarmie name
+      string name = swarmieNames.at(i);
+      if(name != publishedName){      
+	      currentRecipientName = name;
+	      resourceFencePub.publish(fence_msg);
+	      std_msgs::String test_msg;
+	      //see who we've sent a message to in each part of the loop:
+	      stringstream ffs;
+	      ffs << "published a circular fence to swarmie " << name;//from point (" << x << ", " << y << ") & radius" << radius << " to swarmie " << name;
+	      string test = ffs.str();      
+	      test_msg.data = test;
+	      infoLogPublisher.publish(test_msg);
+		}
+  	}
+}
+
 void startOrderHandler(const std_msgs::String& msg)		//startOrder
 {
-    if(testCount == false)
-    {
-	cnmStartOrder++;
+   //TODO: is this the handler that receives the initial start message? 
+   //if so, what the hell is our initial start message?
+
+   //Hijacking this event handler for my own nefarious purposes
+   //in theory, we only get one message from each swarmie on boot up
+   //and in this case, that should just be our hostname
+   //so for this event handler, we just want to add that hostname to 
+   //our list of brother swarmies so that we can access them later.
+   swarmieNames.push_back(msg.data);
+   cnmStartOrder++;
+   std_msgs::String msgFrom;
+   stringstream ss;
+   ss << "count is: " << cnmStartOrder << " msg from: "<< msg;
+   msgFrom.data = ss.str();
+   infoLogPublisher.publish(msgFrom);
+   
+   //this will sort our list every time we add a name, so for now it's okay,
+   //but it will not work in the case that a swarmie enters the arena part-way
+   //thru the competition
+   for(int i = 0; i < swarmieNames.size(); i++){
+      //this loops through the entire list i times, which I think is 
+      //sufficient to sort the whole thing? 
+      //should be i^2 comparisons,
+      //but maybe double check the math at some point
+      for(int j = 0; j < swarmieNames.size()-1; j++){
+      //if swarmieNames[i] is 'bigger' than swarmieNames[i+1], switch
+        if(swarmieNames.at(i) > swarmieNames.at(i+1)){
+          string temp = swarmieNames.at(i);
+          swarmieNames.at(i) = swarmieNames.at(i+1);
+          swarmieNames.at(i+1) = temp;
+          //reassign int ids
+          //comms[names(i+1)].ID = i+1;
+          //comms[names(i)].ID = i;
+        }
+      }
     }
 
+   /*if(testCount == false)
+   {
+     cnmStartOrder++;
+   }
    if(cnmStartOrder == 1)
    {
        std_msgs::String msg;
@@ -951,21 +1068,20 @@ void startOrderHandler(const std_msgs::String& msg)		//startOrder
      std_msgs::String msg;
         msg.data = "count is 6";
         infoLogPublisher.publish(msg);
-   }
+   }*/
 }
 
 void CNMFirstBoot()
 {
     //FIRST TIME IN THIS FUNCTION
-
     if(testCount)		//startOrder
     {
-        testCount = false;
+      testCount = false;
       /*  std_msgs::String msg;
         msg.data = "first boot running ";
         infoLogPublisher.publish(msg);*/
 
-	startOrderPub.publish(msg);
+	    startOrderPub.publish(msg);
     }
 }
 
@@ -974,12 +1090,12 @@ void sortOrder()
   if(sortTrigger)
   {
     sortTrigger = false;
-    std::string str(ip);
+    //std::string str(ip);
     msg.data = publishedName;
     //msg.data = ip;
     sortOrderPub.publish(msg);
-   //     msg.data = "sortTrigger is running ";
-   //     infoLogPublisher.publish(msg);
+    //msg.data = "sortTrigger is running ";
+    //infoLogPublisher.publish(msg);
   }
 }
 
@@ -1003,6 +1119,24 @@ void sortOrderHandler(const std_msgs::String& msg)
   */
 }
 
+void miscHandler(const std_msgs::String& misc_msg){
+  //AJH: do stuff
+}
+void obstacleMsgHandler(const std_msgs::String& msg){
+  //AJH: do stuff
+}
+
+void resourceFenceHandler(std_msgs::Float32MultiArray const& fence_msg){
+	//copied from our fence handler for testing:
+	// Elements 2 and 3 are the x and y coordinates of the range center
+    Point center;
+    center.x = fence_msg.data[1]; // Range center x
+    center.y = fence_msg.data[2]; // Range center y
+
+    float radius = fence_msg.data[3];
+    logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
+}
+
 void CNMProjectCenter()
 {
     //NOTES ON THIS FUNCTION:
@@ -1011,9 +1145,9 @@ void CNMProjectCenter()
 
     if(resetMap)
     {
-	resetMap = false;
-	maxedCenterArray = false;
-	centerIndex = 0;
+	    resetMap = false;
+	    maxedCenterArray = false;
+	    centerIndex = 0;
     }
 
     //NORMALIZE ANGLEf
@@ -1033,9 +1167,9 @@ void CNMAVGCenter()
 
   if(resetMap)
   {
-  resetMap = false;
-  maxedCenterArray = false;
-  centerIndex = 0;
+    resetMap = false;
+    maxedCenterArray = false;
+    centerIndex = 0;
   }
 
 
@@ -1071,13 +1205,14 @@ void CNMAVGCenter()
     cnmCenterLocation.y = (avgY);
     logicController.cnmSetCenterLocationMAP(cnmCenterLocation);
 
-
     stringstream ss;
     ss << "Center Position X: " <<   cnmCenterLocation.x << " Y: " << cnmCenterLocation.y << "  Index: " << centerIndex << endl;
     msg.data = ss.str();
     infoLogPublisher.publish(msg);
 
-
+    //AJH now that we have our initial start stuff done, 
+    //we are ready to start moving
+    isReady = true;
 
 }
 
@@ -1096,37 +1231,40 @@ void CNMCurrentLocationAVG()
 	     avgCurrentCoordsX[index] = currentLocationMap.x;
     	 avgCurrentCoordsY[index] = currentLocationMap.y;
 
-	index++;
+	     index++;
 
-	//return false;
+	     //return false;
     }
+
     else
     {
-	float x = 0, y = 0;
-	for(int i = 0; i < CASIZE; i++)
-	{
-	    x += avgCurrentCoordsX[i];
-	    y += avgCurrentCoordsY[i];
-	}
+	      float x = 0, y = 0;
+	      for(int i = 0; i < CASIZE; i++)
+	      {
+	        x += avgCurrentCoordsX[i];
+	        y += avgCurrentCoordsY[i];
+	      }
 
-	x = x/CASIZE;
-	y = y/CASIZE;
+	    x = x/CASIZE;
+	    y = y/CASIZE;
 
-  Point cnmAVGCurrentLocation;
-	cnmAVGCurrentLocation.x = x;
-	cnmAVGCurrentLocation.y = y;
-  cnmAVGCurrentLocation.theta = currentLocation.theta;
+      Point cnmAVGCurrentLocation;
+	    cnmAVGCurrentLocation.x = x;
+	    cnmAVGCurrentLocation.y = y;
+      cnmAVGCurrentLocation.theta = currentLocation.theta;
 
-  logicController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
-
-
-  stringstream ff;
-  ff << "Current Postion Average is X: "<< cnmAVGCurrentLocation.x << "  Y: " << cnmAVGCurrentLocation.y << "  Theta: " << currentLocation.theta << endl;
-         Msg.data = ff.str();
-         infoLogPublisher.publish(Msg);
+      logicController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
 
 
-	index = 0;
-	//return true;
+      stringstream ff;
+      ff << "Current Postion Average is X: "<< cnmAVGCurrentLocation.x << "  Y: " << cnmAVGCurrentLocation.y << "  Theta: " << currentLocation.theta << endl;
+           Msg.data = ff.str();
+           infoLogPublisher.publish(Msg);
+
+
+	    index = 0;
+	    //return true;
     }
+
+    
 }

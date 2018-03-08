@@ -287,13 +287,20 @@ void LogicController::controllerInterconnect()
     driveController.Reset();
   }
 
+/*
+  if(driveController.getCurrLocAVG())
+  {
+    locationController.CNMCurrentLocationAVG();
+  }
+*/
+
 }
 
 // Recieves position in the world inertial frame (should rename to SetOdomPositionData)
 void LogicController::SetPositionData(Point currentLocation)
 {
-  searchController.SetCurrentLocation(currentLocation);
-  dropOffController.SetCurrentLocation(currentLocation);
+  //searchController.SetCurrentLocation(currentLocation);
+  //dropOffController.SetCurrentLocation(currentLocation);
   obstacleController.setCurrentLocation(currentLocation);
   //driveController.SetCurrentLocation(currentLocation);
   manualWaypointController.SetCurrentLocation(currentLocation);
@@ -304,8 +311,9 @@ void LogicController::SetMapPositionData(Point currentLocation)
 {
   range_controller.setCurrentLocation(currentLocation);
   dropOffController.SetCurrentLocation(currentLocation);
-  //driveController.SetCurrentLocation(currentLocation);
-  //searchController.SetCurrentLocation(currentLocation);
+  driveController.SetCurrentLocation(currentLocation);
+  searchController.SetCurrentLocation(currentLocation);
+  //locationController.setCurrentLocation(currentLocation);
 }
 
 void LogicController::SetVelocityData(float linearVelocity, float angularVelocity)
@@ -410,11 +418,15 @@ void LogicController::cnmSetCenterLocationMAP(Point cnmCenterLocation)
 
 void LogicController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
 {
-  driveController.SetCurrentLocation(cnmAVGCurrentLocation);
+
   searchController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   driveController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   /*dropOffController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   obstacleController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   manualWaypointController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
   */
+}
+
+void staticTest(){
+  cout << "it worked" << endl;
 }

@@ -69,21 +69,23 @@ Result DropOffController::DoWork() {
       result.fingerAngle = M_PI_2; //open fingers
       result.wristAngle = 0; //raise wrist
 
-      result.pd.cmdVel = -0.3;
+      result.pd.cmdVel = -0.2; //CNM 2017 CHANGED FROM .3
       result.pd.cmdAngularError = 0.0;
+
+
     }
 
     return result;
   }
 
-  double distanceToCenter = hypot(this->centerLocation.x - this->currentLocation.x, this->centerLocation.y - this->currentLocation.y);
+  double distanceToCenter = hypot(cnmCenterLocation.x - this->currentLocation.x, cnmCenterLocation.y - this->currentLocation.y);
 
   //check to see if we are driving to the center location or if we need to drive in a circle and look.
   if (distanceToCenter > collectionPointVisualDistance && !circularCenterSearching && (count == 0)) {
 
     result.type = waypoint;
     result.wpts.waypoints.clear();
-    result.wpts.waypoints.push_back(this->centerLocation);
+    result.wpts.waypoints.push_back(cnmCenterLocation);
     startWaypoint = false;
     isPrecisionDriving = false;
 
@@ -95,12 +97,21 @@ Result DropOffController::DoWork() {
   else if (timerTimeElapsed >= 2)//spin search for center
   {
     Point nextSpinPoint;
+    //Setup get cnm current location avgerage
+    static bool averaged = false;
+    averaged = DropOffController::CNMCurrentLocationAVG();
+
+    if(averaged)
+    {
+      averaged = false;
+      cout << "AVERAGED - Averaged Current location complete" << endl;
+    }
 
     //sets a goal that is 60cm from the centerLocation and spinner
     //radians counterclockwise from being purly along the x-axis.
-    nextSpinPoint.x = centerLocation.x + (initialSpinSize + spinSizeIncrease) * cos(spinner);
-    nextSpinPoint.y = centerLocation.y + (initialSpinSize + spinSizeIncrease) * sin(spinner);
-    nextSpinPoint.theta = atan2(nextSpinPoint.y - currentLocation.y, nextSpinPoint.x - currentLocation.x);
+    nextSpinPoint.x = cnmCenterLocation.x + (initialSpinSize + spinSizeIncrease) * cos(spinner);
+    nextSpinPoint.y = cnmCenterLocation.y + (initialSpinSize + spinSizeIncrease) * sin(spinner);
+    nextSpinPoint.theta = atan2(nextSpinPoint.y - cnmCurrentLocation.y, nextSpinPoint.x - cnmCurrentLocation.x);
 
     result.type = waypoint;
     result.wpts.waypoints.clear();
@@ -168,23 +179,26 @@ Result DropOffController::DoWork() {
     result.type = precisionDriving;
 
     //otherwise turn till tags on both sides of image then drive straight
-    if (left && right) {
+    if ((countLeft - 6) <= 0 && (countRight - 6) <=0) { //CNM 2017 values Go straight in
       result.pd.cmdVel = searchVelocity;
       result.pd.cmdAngularError = 0.0;
     }
-    else if (right) {
+    else if (countLeft > (countRight - 6)) { //CNM 2017 values Turn Right
       result.pd.cmdVel = -0.1 * turnDirection;
       result.pd.cmdAngularError = -centeringTurnRate*turnDirection;
     }
-    else if (left){
+    else if (countLeft < (countRight - 6)){ //CNM 2017 values Turn Left
       result.pd.cmdVel = -0.1 * turnDirection;
       result.pd.cmdAngularError = centeringTurnRate*turnDirection;
     }
+
+    /*
     else
     {
       result.pd.cmdVel = searchVelocity;
       result.pd.cmdAngularError = 0.0;
     }
+    */
 
     //must see greater than this many tags before assuming we are driving into the center and not along an edge.
     if (count > centerTagThreshold)
@@ -300,12 +314,15 @@ void DropOffController::SetTargetData(vector<Tag> tags) {
       for (int i = 0; i < tags.size(); i++) {
         if (tags[i].getID() == 256) {
 
+
           // checks if tag is on the right or left side of the image
           if (tags[i].getPositionX() + cameraOffsetCorrection > 0) {
             countRight++;
+            cout << "TAG - Right Tag Orientation X: "<< tags[i].getOrientationX() << "  Y: " << tags[i].getOrientationY() << "  Z: " << tags[i].getOrientationZ() << endl;
 
           } else {
             countLeft++;
+
           }
         }
       }
@@ -356,8 +373,14 @@ bool DropOffController::IsChangingMode() {
   return isPrecisionDriving;
 }
 
+
 void DropOffController::SetCenterLocation(Point center) {
   centerLocation = center;
+}
+
+
+void DropOffController::cnmSetCenterLocation(Point center) {
+  cnmCenterLocation = center;
 }
 
 void DropOffController::SetCurrentLocation(Point current) {
@@ -375,4 +398,53 @@ void DropOffController::SetBlockBlockingUltrasound(bool blockBlock) {
 void DropOffController::SetCurrentTimeInMilliSecs( long int time )
 {
   current_time = time;
+}
+
+void DropOffController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
+{
+  cnmCurrentLocation = cnmAVGCurrentLocation;
+}
+
+bool DropOffController::CNMCurrentLocationAVG()
+{
+
+  const int CASIZE = 30;
+
+  float avgCurrentCoordsX[CASIZE];
+  float avgCurrentCoordsY[CASIZE];
+
+    static int index = 0;
+
+    if(index < CASIZE)
+    {
+
+       avgCurrentCoordsX[index] = currentLocation.x;
+       avgCurrentCoordsY[index] = currentLocation.y;
+
+  index++;
+
+  return false;
+    }
+    else
+    {
+  float x = 0, y = 0;
+  for(int i = 0; i < CASIZE; i++)
+  {
+      x += avgCurrentCoordsX[i];
+      y += avgCurrentCoordsY[i];
+  }
+
+  x = x/CASIZE;
+  y = y/CASIZE;
+
+  Point cnmAVGCurrentLocation;
+  cnmAVGCurrentLocation.x = x;
+  cnmAVGCurrentLocation.y = y;
+  cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+  DropOffController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  index = 0;
+  return true;
+    }
 }

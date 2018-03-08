@@ -1,6 +1,7 @@
 #ifndef SEARCH_CONTROLLER
 #define SEARCH_CONTROLLER
 
+#include <geometry_msgs/Pose2D.h> //CNM added 2/15/18
 #include <random_numbers/random_numbers.h>
 #include "Controller.h"
 
@@ -27,6 +28,10 @@ public:
   void SetCenterLocation(Point centerLocation);
   void SetSuccesfullPickup();
 
+  void cnmSetCenterLocation(Point cnmCenterLocation);
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation); // {cnmCurrentLocation = cnmAVGCurrentLocation;}
+  bool CNMCurrentLocationAVG();
+
   //sets the value for initial point in search pattern
   int SquareSearchStartPosition();
 
@@ -35,6 +40,11 @@ protected:
   void ProcessData();
 
 private:
+
+  //Averaged GPS center location
+  Point cnmCenterLocation;
+  //Averaged GPS current location
+  Point cnmCurrentLocation;
 
   random_numbers::RandomNumberGenerator* rng;
   Point currentLocation;

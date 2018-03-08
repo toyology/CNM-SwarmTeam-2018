@@ -2,6 +2,7 @@
 #define DROPOFCONTROLLER_H
 #define HEADERFILE_H
 
+
 #include "Controller.h"
 #include "Tag.h"
 #include <math.h>
@@ -32,6 +33,9 @@ public:
   void SetCurrentTimeInMilliSecs( long int time );
 
   void cnmSetCenterLocation(Point center);
+  bool CNMCurrentLocationAVG();
+
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation);
 
 private:
 
@@ -81,7 +85,10 @@ private:
   //Center and current locations as of the last call to setLocationData
   Point centerLocation;
   Point currentLocation;
+  //Averaged GPS center location
   Point cnmCenterLocation;
+  //Averaged GPS current location
+  Point cnmCurrentLocation;
 
   //Time since modeTimer was started, in seconds
   float timerTimeElapsed;
@@ -115,6 +122,8 @@ private:
   bool startWaypoint;
 
   Result result;
+
+
 
   long int current_time;
 

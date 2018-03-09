@@ -1,7 +1,7 @@
 #ifndef SEARCH_CONTROLLER
 #define SEARCH_CONTROLLER
 
-#include <geometry_msgs/Pose2D.h> //CNM added 2/15/18
+#include <geometry_msgs/Pose2D.h> //CNM added 3/7/18
 #include <random_numbers/random_numbers.h>
 #include "Controller.h"
 
@@ -27,13 +27,59 @@ public:
   void SetCurrentLocation(Point currentLocation);
   void SetCenterLocation(Point centerLocation);
   void SetSuccesfullPickup();
-
+  
+  //Added CNM 3-7-2018
   void cnmSetCenterLocation(Point cnmCenterLocation);
-  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation); // {cnmCurrentLocation = cnmAVGCurrentLocation;}
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation); 
+  // {cnmCurrentLocation = cnmAVGCurrentLocation;}
   bool CNMCurrentLocationAVG();
 
   //sets the value for initial point in search pattern
   int SquareSearchStartPosition();
+  
+  //Added 3-5-2018
+  //Finds the value for the initial point for the octagon search pattern
+  int OctagonSearchStartPosition();
+  
+  //Added 3-5-2018
+  //Finds the value for the initial point for the star search pattern
+  int StarSearchStartPosition();
+  
+  //Added 3-6-2018
+  //Finds the value for the initial point for the sector search pattern
+  int SectorSearchStartPosition();
+  
+  //Added 3-5-2018
+  //Creating point to move to
+  Point SetDestination(Point centerLocation,
+                       Point currentLocation, 
+                       double xDelta,
+                       double yDelta);
+                       
+  
+  //Added 3-5-2018
+  //Creates states to use to determine the correct search pattern.
+  enum SearchState {
+  SQUARE,
+  OCTAGON,
+  STAR,
+  SECTOR
+  }; 
+  
+  SearchState searchState; 
+                       
+  //Added 3-6-2018
+  //Setting Search State
+  void SetSearchState(SearchState searchState);
+  
+  //Added 3-6-2018
+  void SetSectorRadius(double sectorRadius);
+  
+  //Added 3-6-2018
+  void SetSquareHeight(double squareHeight);
+  
+  //Added 3-6-2018
+  void SetSearchCounter(double searchCounter);
 
 protected:
 
@@ -41,16 +87,21 @@ protected:
 
 private:
 
+  //Added CNM 3-7-2018
   //Averaged GPS center location
   Point cnmCenterLocation;
   //Averaged GPS current location
   Point cnmCurrentLocation;
-
+  
   random_numbers::RandomNumberGenerator* rng;
   Point currentLocation;
   Point centerLocation;
   Point searchLocation;
   int attemptCount = 0;
+  
+  //incrememnt values for distance
+  double searchCounter;
+  double searchDist;
   //struct for returning data to ROS adapter
   Result result;
 
@@ -58,6 +109,11 @@ private:
   // Flag to allow special behaviour for the first waypoint
   bool first_waypoint = true;
   bool succesfullPickup = false;
+  
+  //Added 3-6-18
+  double squareHeight;
+  double sectorRadius;
+  
 };
 
 #endif /* SEARCH_CONTROLLER */

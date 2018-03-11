@@ -9,6 +9,9 @@
  * This class implements the search control algorithm for the rovers. The code
  * here should be modified and enhanced to improve search performance.
  */
+
+extern bool cnmObstacleAvoided;
+ 
 class SearchController : virtual Controller {
 
 public:
@@ -63,7 +66,8 @@ public:
   SQUARE,
   OCTAGON,
   STAR,
-  SECTOR
+  SECTOR,
+  RANDOM
   }; 
   
   SearchState searchState; 
@@ -80,10 +84,15 @@ public:
   
   //Added 3-6-2018
   void SetSearchCounter(double searchCounter);
+  
+  //Added 3-10-18 For Obstacle Handling
+  void cnmSetObstacleAvoidanceState();
+  //extern bool cnmObstacleAvoided;
 
 protected:
 
   void ProcessData();
+  //void cnmSetObstacleAvoidanceState();
 
 private:
 
@@ -113,6 +122,15 @@ private:
   //Added 3-6-18
   double squareHeight;
   double sectorRadius;
+  
+  //Added 3-10-18 for abstacle handling
+  //bool obstacleAvoided;
+  int obstacleAvoidanceCount;
+  int totalObstacleAvoidanceCount;
+  bool hasIncremented;
+  
+  //Added 3-10-18
+  int searchStep;
   
 };
 

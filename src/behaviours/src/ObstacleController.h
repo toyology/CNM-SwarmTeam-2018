@@ -3,6 +3,7 @@
 
 #include "Controller.h"
 #include "Tag.h"
+#include "SearchController.h"
 
 class ObstacleController : virtual Controller
 {

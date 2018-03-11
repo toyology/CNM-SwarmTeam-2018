@@ -5,9 +5,10 @@
 #include <angles/angles.h>
 
 int cnmSearchLoop = 0;
+bool cnmObstacleAvoided = false;
 
 SearchController::SearchController() {
-    //rng = new random_numbers::RandomNumberGenerator();
+    rng = new random_numbers::RandomNumberGenerator();
     searchCounter = .5;
     //searchCounter = 4;
     searchDist = .35;
@@ -40,6 +41,16 @@ SearchController::SearchController() {
     
     //Added 3-7-2018
     delete rng; //??
+    
+    //Added 3-10-2018 For obstacle handling
+    //cnmObstacleAvoided = false;
+    obstacleAvoidanceCount = 0;
+    totalObstacleAvoidanceCount = 0;
+    hasIncremented = true;
+    //cnmObstacleAvoided = false;
+    
+    //Added 3-10-2018
+    searchStep = 0;
 }
 
 void SearchController::Reset() 
@@ -77,7 +88,28 @@ Result SearchController::DoWork()
     result.type = waypoint;
     Point  searchLocation;
     
-    //find which corner of the square to goto first based on 180deg of current heading
+    //Added 3-10-2018 for obstacle handling
+    if(!cnmObstacleAvoided)
+    {
+        cnmSearchLoop++;
+        searchStep++;
+    }
+    else
+    {
+        if(++obstacleAvoidanceCount > 3)
+        {
+            cnmSearchLoop++;
+            searchStep++;
+            obstacleAvoidanceCount = 0;
+            if(++totalObstacleAvoidanceCount > 10)
+                searchState = RANDOM;
+        }
+    }
+    
+    
+    
+    //find which corner of the square to go 
+    //to first based on 180deg of current heading
     if (first_waypoint)
     {
         cout << "SEARCH - finding where to go first"  << endl;
@@ -108,6 +140,14 @@ Result SearchController::DoWork()
                 = SearchController::SectorSearchStartPosition();
                 break;
             }
+            case RANDOM:
+            {
+                searchLocation.theta = currentLocation.theta + M_PI;
+                searchLocation.x = currentLocation.x 
+                + (0.5 * cos(searchLocation.theta));
+                searchLocation.y = currentLocation.y 
+                + (0.5 * sin(searchLocation.theta)); 
+            }
         }
     }
     
@@ -127,7 +167,7 @@ Result SearchController::DoWork()
                                                 currentLocation, 
                                                 squareHeight/2,
                                                 squareHeight/2);
-                cnmSearchLoop = 1;
+                //cnmSearchLoop = 1;
             }
             else if (cnmSearchLoop == 1) //corner in quaderant 2
             {
@@ -136,7 +176,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -squareHeight/2,
                                                 squareHeight/2);
-                cnmSearchLoop = 2;
+                //cnmSearchLoop = 2;
                 
             }
             else if (cnmSearchLoop == 2) //corner in quaderant 3
@@ -146,7 +186,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -squareHeight/2,
                                                 -squareHeight/2);
-                cnmSearchLoop = 3;
+                //cnmSearchLoop = 3;
                 
             }
             else if (cnmSearchLoop == 3) //corner in quaderant 4
@@ -156,8 +196,15 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 +squareHeight/2,
                                                 -squareHeight/2);
-                cnmSearchLoop = 0;
+                //cnmSearchLoop = 0;
                 
+            }
+            
+            if (searchStep > 2)
+            {
+                squareHeight+=searchDist;
+                totalObstacleAvoidanceCount = 0;
+                searchStep = 0;
             }  
             break;  
         }//END SQUARE CASE
@@ -175,7 +222,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter/2,
                                                 searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 1)
             {
@@ -183,7 +230,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -searchCounter/2,
                                                 searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 2)
             {
@@ -191,7 +238,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -searchCounter,
                                                 searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 3)
             {
@@ -199,7 +246,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -searchCounter,
                                                 -searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 4)
             {
@@ -207,7 +254,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -searchCounter/2,
                                                 -searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 5)
             {
@@ -215,7 +262,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter/2,
                                                 -searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 6)
             {
@@ -223,7 +270,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter,
                                                 -searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 7)
             {
@@ -231,7 +278,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter,
                                                 searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 8)
             {
@@ -239,9 +286,15 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter/2,
                                                 searchCounter);
-                cnmSearchLoop++;
-                searchCounter += searchDist;
+                //cnmSearchLoop++;
+                //searchCounter += searchDist;
             }
+            if (searchStep > 7)
+            {
+                searchCounter+=searchDist;
+                totalObstacleAvoidanceCount = 0;
+                searchStep = 0;
+            } 
             break;
         }//END OCTAGON CASE
         
@@ -258,7 +311,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 0,
                                                 searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 1)
             {
@@ -266,7 +319,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter,
                                                 -searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 2)
             {
@@ -274,7 +327,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -searchCounter,
                                                 -searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 3)
             {
@@ -282,7 +335,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 0,
                                                 searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 4)
             {
@@ -290,7 +343,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter,
                                                 searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 5)
             {
@@ -298,7 +351,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 0,
                                                 -searchCounter);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 6)
             {
@@ -306,7 +359,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -searchCounter,
                                                 searchCounter/2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 7)
             {
@@ -314,9 +367,15 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 searchCounter,
                                                 searchCounter/2);
-                cnmSearchLoop++;
-                searchCounter += searchDist;
+                //cnmSearchLoop++;
+                //searchCounter += searchDist;
             }
+            if (searchStep > 6)
+            {
+                searchCounter+=searchDist;
+                totalObstacleAvoidanceCount = 0;
+                searchStep = 0;
+            } 
             break;
         }//END STAR CASE
         
@@ -333,7 +392,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 sectorRadius,
                                                 sectorRadius*2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 1)
             {
@@ -341,7 +400,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -sectorRadius,
                                                 sectorRadius*2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 2)
             {
@@ -349,7 +408,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 sectorRadius,
                                                 -sectorRadius*2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 3)
             {
@@ -357,7 +416,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 sectorRadius*2,
                                                 0);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 4)
             {
@@ -365,7 +424,7 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -sectorRadius*2,
                                                 0);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 5)
             {
@@ -373,10 +432,20 @@ Result SearchController::DoWork()
                                                 cnmCurrentLocation, 
                                                 -sectorRadius,
                                                 -sectorRadius*2);
-                cnmSearchLoop++;
+                //cnmSearchLoop++;
             }
             break;
         }//END SECTOR CASE
+        
+        case RANDOM:
+        {
+            searchLocation.theta //45 degrees in radians
+            = rng->gaussian(currentLocation.theta, 0.785398); 
+            searchLocation.x 
+            = currentLocation.x + (0.5 * cos(searchLocation.theta));
+            searchLocation.y 
+            = currentLocation.y + (0.5 * sin(searchLocation.theta));
+        }//END RANDOM CASE
     }//END SWITCH 
     
     result.wpts.waypoints.clear();
@@ -395,7 +464,17 @@ Point SearchController::SetDestination(Point centerLocation,
     searchLocation.y = centerLocation.y + yDelta;
     searchLocation.theta = atan2((searchLocation.y - currentLocation.y),
                                  (searchLocation.x - currentLocation.x));
+                                 
+    //Added 3-10-2018 Succseful setting of new wayppoint
+    //means obstacle can be reset.
+    cnmObstacleAvoided = false;  
     return searchLocation;  
+}
+
+//Added 3-10-18 For Obstacle Avoidance Tracking
+void SearchController::cnmSetObstacleAvoidanceState()
+{
+    cnmObstacleAvoided = true;
 }
 
 //Added 3-7-2018

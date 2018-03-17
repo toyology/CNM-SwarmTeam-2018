@@ -31,10 +31,10 @@ SearchController::SearchController() {
     result.wristAngle = M_PI/4;
 
     //Added 3-5-2018
-    searchState = SECTOR;
+    searchState = OCTAGON;
 
     //Added 3-6-2018
-    sectorRadius = 1.2;
+    sectorRadius = 2.5;
 
     //Added 3-6-2018
     squareHeight = 5;
@@ -89,6 +89,9 @@ Result SearchController::DoWork()
     Point  searchLocation;
 
     //Added 3-10-2018 for obstacle handling
+    
+    //If setting new waypoint and no obstacle has been handled, increment 
+    //loop waypoint normally.
     if(!cnmObstacleAvoided)
     {
         cnmSearchLoop++;
@@ -96,12 +99,17 @@ Result SearchController::DoWork()
     }
     else
     {
+        //If avoided obstacle 3 times while trying to reach the same waypoint.
         if(++obstacleAvoidanceCount > 3)
         {
           cout << "SEARCH - Called Obstacle 3 times going to next waypoint"  << endl;
+            //We increment waypoint, skipping the one it is trying to get to
             cnmSearchLoop++;
             searchStep++;
-            obstacleAvoidanceCount = 0;
+            obstacleAvoidanceCount = 0; //resetting obstacle count
+            
+            //If obstacles avoided is over 10 without incrementing search
+            //distance then it switches to RANDOM search pattern. 
             if(++totalObstacleAvoidanceCount > 10)
                 searchState = RANDOM;
                 cout << "SEARCH - Called Obstacle 10 times - switching to RND search"  << endl;
@@ -210,9 +218,12 @@ Result SearchController::DoWork()
 
             if (searchStep > 2)
             {
+                //Incrementing search distance
                 squareHeight+=searchDist;
+                //Resetting number of obstacles avoided since we incremented
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
+                cout << "SEARCH - Incrementing square search distance."  << endl;
             }
             break;
         }//END SQUARE CASE
@@ -308,9 +319,12 @@ Result SearchController::DoWork()
             }
             if (searchStep > 7)
             {
+                //Incrementing Search Distance
                 searchCounter+=searchDist;
+                //Resetting obstacle avoidance count since we're incrementing
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
+                cout << "SEARCH - Incrementing octagon search distance."  << endl;
             }
             break;
         }//END OCTAGON CASE
@@ -397,16 +411,22 @@ Result SearchController::DoWork()
             }
             if (searchStep > 6)
             {
+                //Search distance incremented
                 searchCounter+=searchDist;
+                //Resetting the number of obstacles avoided since we're 
+                //incrementing
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
+                
+                cout << "SEARCH - Incrementing star search distance."  << endl;
             }
             break;
         }//END STAR CASE
 
+        //Sector search and rotated sector search
         case SECTOR:
         {
-            if (cnmSearchLoop < 0 || cnmSearchLoop > 5)
+            if (cnmSearchLoop < 0 || cnmSearchLoop > 13)
             {
                 cnmSearchLoop = 0;
                 cout << "SEARCH - search loop out of bounds, reset"  << endl;
@@ -465,6 +485,78 @@ Result SearchController::DoWork()
                                                 -sectorRadius*2);
                 //cnmSearchLoop++;
             }
+            else if (cnmSearchLoop == 6)
+            {
+                cout << "SEARCH - Sector Point 6"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                sectorRadius,
+                                                sectorRadius*2);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 7)
+            {
+                cout << "SEARCH - Sector Point 7"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                0,
+                                                sectorRadius*2);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 8)
+            {
+                cout << "SEARCH - Sector Point 8"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                -sectorRadius*1.414,
+                                                sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 9)
+            {
+                cout << "SEARCH - Sector Point 9"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                sectorRadius*1.414,
+                                                -sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 10)
+            {
+                cout << "SEARCH - Sector Point 10"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                sectorRadius*1.414,
+                                                sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 11)
+            {
+                cout << "SEARCH - Sector Point 11"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                -sectorRadius*1.414,
+                                                -sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 12)
+            {
+                cout << "SEARCH - Sector Point 12"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                0,
+                                                -sectorRadius*2);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 13)
+            {
+                cout << "SEARCH - Sector Point 13"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                0,
+                                                sectorRadius*2);
+                //cnmSearchLoop++;
+            }
             break;
         }//END SECTOR CASE
 
@@ -499,7 +591,7 @@ Point SearchController::SetDestination(Point centerLocation,
     searchLocation.theta = atan2((searchLocation.y - currentLocation.y),
                                  (searchLocation.x - currentLocation.x));
 
-    //Added 3-10-2018 Succseful setting of new wayppoint
+    //Added 3-10-2018 Sucsessful setting of new wayppoint
     //means obstacle can be reset.
     cnmObstacleAvoided = false;
     return searchLocation;
@@ -733,7 +825,8 @@ bool SearchController::CNMCurrentLocationAVG()
       	avgCurrentCoordsY[index] = currentLocation.y;
 
 
-        cout << "AVGCL - X: " << avgCurrentCoordsX[index]<< "   Y: " << avgCurrentCoordsY[index] << endl;
+        cout << "AVGCL - X: " << avgCurrentCoordsX[index]<< 
+                "   Y: " << avgCurrentCoordsY[index] << endl;
         index++;
     }
 
@@ -743,16 +836,14 @@ bool SearchController::CNMCurrentLocationAVG()
        x += avgCurrentCoordsX[i];
        y += avgCurrentCoordsY[i];
     }
-
-    x = x/CASIZE;
-    y = y/CASIZE;
-
+    
     Point cnmAVGCurrentLocation;
-    cnmAVGCurrentLocation.x = x;
-    cnmAVGCurrentLocation.y = y;
+    cnmAVGCurrentLocation.x = x/CASIZE;
+    cnmAVGCurrentLocation.y = y/CASIZE;
     cnmAVGCurrentLocation.theta = currentLocation.theta;
 
     SearchController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
-    cout << "AVGCL complete - X: " << cnmAVGCurrentLocation.x<< "   Y: " << cnmAVGCurrentLocation.y << endl;
+    cout << "AVGCL complete - X: " << cnmAVGCurrentLocation.x<< 
+            "   Y: " << cnmAVGCurrentLocation.y << endl;
     return true;
   }

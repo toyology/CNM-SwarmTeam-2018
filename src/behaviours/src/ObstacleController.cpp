@@ -1,4 +1,5 @@
 #include "ObstacleController.h"
+#include <math.h>
 //#include "SearchController.h"
 
 ObstacleController::ObstacleController()
@@ -26,14 +27,26 @@ void ObstacleController::avoidObstacle() {
     if (right < 0.8 || center < 0.8 || left < 0.8) {
       result.type = precisionDriving;
 
+      //Old stuff.
       //result.pd.cmdAngular = -K_angular;
-      result.pd.cmdAngular = K_angular;
+      //result.pd.cmdAngular = K_angular;
+      
+      //If object is closer on the left, turn right
+      if (right > left)
+      {
+        -K_angular;
+        cout << "OBSTACLE - turning right"  << endl;
+      }
+      else //else turn left
+      {
+        K_angular;
+        cout << "OBSTACLE - turning left"  << endl;
+      }
 
       result.pd.setPointVel = 0.0;
       result.pd.cmdVel = 0.0;
       result.pd.setPointYaw = 0;
 
-      cout << "OBSTACLE - turning left"  << endl;
     }
 }
 
@@ -84,15 +97,20 @@ Result ObstacleController::DoWork() {
     result.type = waypoint;
     result.PIDMode = FAST_PID; //use fast pid for waypoints
     Point forward;            //waypoint is directly ahead of current heading
-    forward.x = currentLocation.x + (1.0 * cos(currentLocation.theta));
-    forward.y = currentLocation.y + (1.0 * sin(currentLocation.theta));
+    //Added 3-15-2018 to modify obstacle turning
+    forward.theta = currentLocation.theta;// + (M_PI/6);
+    //forward.x = currentLocation.x + (1.0 * cos(currentLocation.theta));
+    //forward.y = currentLocation.y + (1.0 * sin(currentLocation.theta));
+    
+    //tells swarmie to head forward 2m once no obstacle is detected.
+    forward.x = currentLocation.x + (2.0 * cos(forward.theta));
+    forward.y = currentLocation.y + (2.0 * sin(forward.theta));
     result.wpts.waypoints.clear();
     result.wpts.waypoints.push_back(forward);
     cout << "OBSTACLE - detected obstacle setting new waypoint"  << endl;
 
 
   //Added 3-10-2018 for tracking obstacle avoidance
-  //SearchController::cnmSetObstacleAvoidanceState();
   cnmObstacleAvoided = true;
   }
   return result;

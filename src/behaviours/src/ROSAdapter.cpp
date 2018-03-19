@@ -234,7 +234,8 @@ const int* myAreasSmall;
 vector<ros::Publisher> comms;
 //my integer id, which prompts swarmie role selection/assignment
 int myID;
-float taskTime;
+//set this to something big initially so we don't update tasks every timer tick
+float taskTime = 100;
 ros::NodeHandle *cnm_NH;
 
 swarmie_msgs::Waypoint wmsg;
@@ -446,7 +447,7 @@ if(timerTimeElapsed > 53 && publishedName == "artemis" && firstUpdate)
 }*/
 
 //at each taskTime elapsed, update our roles
-if((int)(timerTimeElapsed/60000) == taskTime){
+if((timerTimeElapsed/60000) >= taskTime){
   updateBehavior(timerTimeElapsed, update);
   //set our next task timer deadline
   taskTime += taskTime;
@@ -1158,6 +1159,7 @@ void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
         rcvd << "rcv'd resource msg points: (" << my_msg.x << ", " << my_msg.y << ")";
         msg.data = rcvd.str();
         infoLogPublisher.publish(msg);
+        logicController.goHelp(center, radius);
         //logicController.
         //logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
         //logicController.setInterconnectedCOntroller thing here
@@ -1358,12 +1360,6 @@ void assignSwarmieRoles(int currentTime){
   //when he started doing it.
   //system();
 
-/*CGFloat *components;
-components = (CGFloat [8]) {
-    0.0, 0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.15
-};*/
-
   //fire initial behavior starts now
   //assign my role based on myID and swarmie team size:
   switch(myID){
@@ -1371,10 +1367,11 @@ components = (CGFloat [8]) {
       //gatherers should be on call for the searchers (if they find a resource, etc.)
       case 0://gather1:
         myRole = Role::gather1;           
-        msg.data = ("I am a gatherer! (gather2)"); //My role is: " + myRole.toString());
+        msg.data = ("I am a gatherer! (gather1)"); //My role is: " + myRole.toString());
         infoLogPublisher.publish(msg);
         static const int myBigArray1[8] = {6,7,8,11,12,16,17,18};
         myAreasBig = &myBigArray1[0];
+        //TODO: start the octagon (inner loop)
 
         break;  
       //searchers should get their initial grid areas, which are calculated based on team size and 
@@ -1386,6 +1383,7 @@ components = (CGFloat [8]) {
         infoLogPublisher.publish(msg);
         static const int myBigArray2[8] = {6,7,8,11,12,16,17,18};
         myAreasBig = &myBigArray2[0];
+        //TODO: start the octagon (outer loop)
 
         break;
       case 1://searcher1:
@@ -1398,13 +1396,15 @@ components = (CGFloat [8]) {
         {
           static const int myBigArray3[8] = {1,0,5,10,15,20,21,22};
           myAreasBig = &myBigArray3[0];
-          taskTime = 1.75;
+          taskTime = 3.50;
+          logicController.changeAreas(mapAreas[myAreasBig[0]], 2.2);
         }
         else
         {
           static const int mySmallArray1[4] = {1,0,5,10};
           myAreasSmall = &mySmallArray1[0];
-          taskTime = 3.50;
+          taskTime = 1.75;
+          logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.5);
         }
 
         break;
@@ -1418,13 +1418,15 @@ components = (CGFloat [8]) {
         {
           static const int myBigArray4[8] = {2,3,4,9,14,19,24,23};
           myAreasBig = &myBigArray4[0];
-          taskTime = 1.75;
+          logicController.changeAreas(mapAreas[myAreasBig[0]], 2.2);
+          taskTime = 3.50;
         }
         else
         {
           static const int mySmallArray2[4] = {2,3,4,9};
           myAreasSmall = &mySmallArray2[0];
-          taskTime = 3.50;
+          taskTime = 1.75;
+          logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.5);
         }
 
         break;
@@ -1435,6 +1437,8 @@ components = (CGFloat [8]) {
         static const int mySmallArray3[4] = {15,20,21,22};
         myAreasSmall = &mySmallArray3[0];
         taskTime = 3.50;
+        logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
+
 
         break;
       case 5://searcher4
@@ -1444,6 +1448,7 @@ components = (CGFloat [8]) {
         static const int mySmallArray4[4] = {14,19,24,23};
         myAreasSmall = &mySmallArray4[0];
         taskTime = 3.50;
+        logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
 
         break;
       default:
@@ -1484,7 +1489,7 @@ void updateBehavior(int currentTime, int update){
         break;
       case Role::searcher3:
       case Role::searcher4:
-        next = mapAreas[myAreasBig[update]];
+        next = mapAreas[myAreasSmall[update]];
         logicController.changeAreas(next, 2.2);
         break;
       //hybrids will search areas and be on call for other swarmies' resource calls.

@@ -244,6 +244,7 @@ std_msgs::String msg;
 std_msgs::String Msg;    //sortOrder
 
 bool hasTested = false;
+bool gpsAveraged = false;
 vector<std::string> swarmieNames;
 void assignSwarmieRoles(int startTime);
 void updateBehavior(int currentTime, int update);
@@ -256,6 +257,8 @@ Point mapAreas[25];
 RangeController foundObstacles[30]; 
 //AJH for testing, obvs. Hoping that was obvious to everyone involved
 void testStuff();
+//Kaily's Outlier Code
+Point removeOutliers(int data_points, Point gps_pts[], int index);
 
 //ARRAYS FOR CENTER
 const int ASIZE = 100;
@@ -273,6 +276,7 @@ void CNMCurrentLocationAVG();      //Averages current location on map
 void CNMProjectCenter();
 
 //Actual Center Array
+Point CenterCoords[ASIZE];
 float CenterXCoordinates[ASIZE];
 float CenterYCoordinates[ASIZE];
 
@@ -474,19 +478,7 @@ if((timerTimeElapsed/60000) >= taskTime){
   // auto mode but wont work in main goes here)
   if (!initilized)
   {
-    int i = centerIndex;
-    //try averaging our gps location here:
-    if( i < ASIZE)
-    {
-      CenterXCoordinates[centerIndex] = currentLocationMap.x;
-      CenterYCoordinates[centerIndex] = currentLocationMap.y;
-
-      //stringstream ss;
-      //ss << "reading position X: " <<   centerLocationMap.x << " Y: " << centerLocationMap.y << "  i: " << i << endl;
-      //msg.data = ss.str();
-      //infoLogPublisher.publish(msg);
-      centerIndex++;
-    }
+    
     if (timerTimeElapsed > startDelayInSeconds)
     {
 
@@ -528,8 +520,6 @@ if((timerTimeElapsed/60000) >= taskTime){
 	    }
       CNMProjectCenter();
       */
-      centerIndex = 0;
-      CNMProjectCenter();
 
       centerLocationMap.x = centerMap.x;
       centerLocationMap.y = centerMap.y;
@@ -552,6 +542,31 @@ if((timerTimeElapsed/60000) >= taskTime){
   {
 
     humanTime();
+    //
+    int i = centerIndex;
+    //try averaging our gps location here:
+    if(i <= 20)//ASIZE) //&& (((int)(timerTimeElapsed*1000)%300 == 0)))
+    {
+      CenterCoords[i].x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
+      CenterCoords[i].y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
+      CenterCoords[i].theta = currentLocation.theta;
+      //CenterXCoordinates[centerIndex] = currentLocationMap.x;
+      //CenterYCoordinates[centerIndex] = currentLocationMap.y;
+
+      //stringstream ss;
+      //ss << "reading position X: " <<   centerLocationMap.x << " Y: " << centerLocationMap.y << "  i: " << i << endl;
+      //msg.data = ss.str();
+      //infoLogPublisher.publish(msg);
+      centerIndex++;
+    }
+    else if(i >= 20 && !gpsAveraged){
+      gpsAveraged = true;
+      centerIndex = 0;
+      removeOutliers(3,CenterCoords,20);
+      CNMProjectCenter();
+    }
+
+
 
     //update the time used by all the controllers
     logicController.SetCurrentTimeInMilliSecs( getROSTimeInMilliSecs() );
@@ -590,7 +605,6 @@ if((timerTimeElapsed/60000) >= taskTime){
     {
 
       sendDriveCommand(result.pd.left,result.pd.right);
-
 
       //Alter finger and wrist angle is told to reset with last stored value if currently has -1 value
       std_msgs::Float32 angle;
@@ -1439,7 +1453,6 @@ void assignSwarmieRoles(int currentTime){
         taskTime = 3.50;
         logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
 
-
         break;
       case 5://searcher4
         myRole = Role::searcher4;
@@ -1561,4 +1574,138 @@ void buildMap()
       x += x_offset;
     }
   }
+}
+
+const static int ARRAY_SIZE = 100;
+
+Point removeOutliers(int data_points, Point gps_points[], int index)
+{        
+  cout << "OUTLIER - averaging points";
+  // create return array
+  Point mean_new; //mean_new holds an x, y, (and sometimes theta) avg val
+  float sum_data = 0; // resets for each axis
+  float sum_data_sqrd = 0;
+  //int n = data_points; // number of data points in axis
+  float n = (float)data_points; // number of data points in axis
+  
+  float sum_data_x = 0;
+  float sum_data_y = 0;
+  float sum_data_theta = 0;
+  float sum_data_x_sqrd = 0;
+  float sum_data_y_sqrd = 0;
+  float sum_data_theta_sqrd = 0;
+
+  switch(data_points){
+    case 3: //work with x, y, & theta
+    {  
+      for(int j = 0; j < (index-1); j++)
+      {
+        sum_data_theta += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta; // sum of data set y 
+        sum_data_theta_sqrd += pow(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta,2);// sum of data set points squared
+        //cout << "OUTLIER - sqrt " << sum_data_theta_sqrd << endl;
+        //cout << "OUTLIER - GPS pt theta: " << gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta << endl;
+      }
+
+      float mean_theta = sum_data_theta/n;
+      float std_dev_theta = pow((sum_data_theta_sqrd-(pow(sum_data_theta,2)/n))/n,0.5);
+      cout << "OUTLIER - std dev theta: " << std_dev_theta << endl;
+      float sum_new_theta = 0;
+      //cout << mean_0<<"  "<<std_dev<<endl;
+      
+      // ignore if data point > +- 1.5 stddevs (~13.5% of data set) away from original mean
+      // calculate new mean
+      // separates logic tests to make them easier to understand
+      float small_theta = mean_theta - (1.5*std_dev_theta); // 1.5 stddevs LESS than mean value
+      float big_theta = mean_theta + (1.5*std_dev_theta); // 1.5 stddevs MORE than mean value
+
+      for (int j = (index-1); j > ((index-1)-n); j--) 
+      {
+          // checks if data point is within acceptable range
+          if ((gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta > small_theta)
+              &&(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta < big_theta))
+          { // adds to mean if inside the +- 1.5 stddevs
+              sum_new_theta += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta;
+
+          } 
+          else 
+          {
+              n-=1; // decreases n if point value is outside the stddev range
+          }
+      }
+
+      mean_new.theta = sum_new_theta/n;
+
+      cout << "OUTLIER - new point average theta: " << mean_new.theta << endl;
+      //don't break, cascade into case 2 data
+    }
+    case 2:
+    {
+     //work with just x & y
+      for(int j = 0; j < (index-1); j++)
+      {
+        sum_data_x += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x; // sum of data set x
+        sum_data_x_sqrd += pow(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x,2);// sum of data set points squared
+        sum_data_y += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y; // sum of data set y 
+        sum_data_y_sqrd += pow(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y,2);// sum of data set points squared
+        //cout << " OUTLIER - sqrd " << sum_data_x_sqrd << ", "<< sum_data_y_sqrd <<endl;
+        //cout << "OUTLIER - GPS pt (x, y): " << gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x << ", " << gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y <<endl;
+      }
+
+      float mean_x = sum_data_x/n; // mean of original data set x
+      float mean_y = sum_data_y/n; // mean of original data set x
+
+      float std_dev_x = pow((sum_data_x_sqrd-(pow(sum_data_x,2)/n))/n,0.5);
+      float std_dev_y = pow((sum_data_y_sqrd-(pow(sum_data_y,2)/n))/n,0.5);
+      cout << "OUTLIER - std dev x,y: " << std_dev_x << ", " << std_dev_y << endl;
+      float sum_new_x = 0;
+      float sum_new_y = 0;
+      //cout << mean_0<<"  "<<std_dev<<endl;
+      
+      // ignore if data point > +- 1.5 stddevs (~13.5% of data set) away from original mean
+      // calculate new mean
+      // separates logic tests to make them easier to understand
+
+      double small_x = mean_x - (1.5*std_dev_x); // 1.5 stddevs LESS than mean value
+      double big_x = mean_x + (1.5*std_dev_x); // 1.5 stddevs MORE than mean value
+      double small_y = mean_y - (1.5*std_dev_y); // 1.5 stddevs LESS than mean value
+      double big_y = mean_y + (1.5*std_dev_y); // 1.5 stddevs MORE than mean value
+      float x_n = (float)data_points;
+      float y_n = (float)data_points; //we may have to reset this at this point, but if not it won't hurt
+      for (int j = (index-1); j > ((index-1)-n); j--) 
+      {
+          // checks if data point is within acceptable range
+          if ((gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x > small_x)
+              &&(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x < big_x))
+          { // adds to mean if inside the +- 1.5 stddevs
+              sum_new_x += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x;
+          } 
+          else
+          {
+            x_n-=1;
+          }
+          if((gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y > small_y)
+            &&(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y < big_y))
+          {
+              sum_new_y += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y;
+          }
+          else 
+          {
+              y_n-=1; // decreases n if point value is outside the stddev range
+          }
+      }
+
+      mean_new.x = sum_new_x/x_n;
+      mean_new.y = sum_new_y/y_n;
+
+      cout << "OUTLIER - new point average: " << mean_new.x <<  ", " << mean_new.y << endl;
+    }
+    break;
+
+    default:
+    //only use this to compare x, y, and theta vals - 
+    //should never, ever reach this part
+    break;
+  }
+
+  return mean_new;
 }

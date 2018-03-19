@@ -756,7 +756,9 @@ void SearchController::setStartingPoint(Point p, double radius){
     //then, add our grid area's center point to our waypoints list  
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
     //reset our search state to a wagon wheel? yes?
-    searchState = SearchState::SECTOR;
+    searchState = SearchState::STAR;
+    SetSectorRadius(radius);
+    cnmSetCenterLocation(p);
     cnmSearchLoop = 0;
     searchCounter = 0;
 }

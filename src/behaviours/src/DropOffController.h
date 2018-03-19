@@ -65,7 +65,7 @@ private:
   const float centeringTurnRate = 0.15; //radians
   const int centerTagThreshold = 8;
   const int lostCenterCutoff = 4; //seconds before giving up on drop off beacuse center cannot be seen anymore
-  const float collectionPointVisualDistance = 0.2; //in meters
+  const float collectionPointVisualDistance = 0.2; //in meters was 0.2
   const float initialSpinSize = 0.05; //in meters aka 10cm
   const float spinSizeIncrement = 0.50; //in meters
   const float searchVelocity = 0.15; //in meters per second was 0.15

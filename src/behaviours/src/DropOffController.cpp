@@ -58,14 +58,21 @@ int count = countLeft + countRight;
 
 cout << "DROPOFF - DoWork    elapsed time: " << timerTimeElapsed << endl;
 
+//start timer
+if(timerTimeElapsed > -1)
+{
+  long int elapsed = current_time - returnTimer;
+  timerTimeElapsed = elapsed/1e3; // Convert from milliseconds to seconds
+}
+
 double distanceToCenter = hypot(cnmCenterLocation.x - this->currentLocation.x, cnmCenterLocation.y - this->currentLocation.y);
 
 //check to see if we are driving to the center location or if we need to drive in a circle and look.
-cout << "DROPOFF - distCenter > collectPts" << (distanceToCenter > collectionPointVisualDistance);
-cout << "DROPOFF - circSearch " << !circularCenterSearching;
-cout << "DROPOFF - count == 0" << (count == 0);
-cout << "DROPOFF - CNMCentered " << CNMCentered;
-if (distanceToCenter > collectionPointVisualDistance && !circularCenterSearching && (count == 0) && !CNMCentered)
+cout << "DROPOFF - distCenter > collectPts" << (distanceToCenter > collectionPointVisualDistance)<< endl;
+cout << "DROPOFF - circSearch " << !circularCenterSearching<< endl;
+cout << "DROPOFF - count == 0" << (count == 0)<< endl;
+cout << "DROPOFF - CNMCentered " << CNMCentered<<endl;
+if (distanceToCenter > collectionPointVisualDistance && !circularCenterSearching && (count == 0))
 {
   cout << "DROPOFF - Checked Distance and driving to waypoint" << endl;
   result.type = waypoint;
@@ -78,34 +85,37 @@ if (distanceToCenter > collectionPointVisualDistance && !circularCenterSearching
 
   return result;
 }
-//start timer
-if(timerTimeElapsed > -1)
-{
-  long int elapsed = current_time - returnTimer;
-  timerTimeElapsed = elapsed/1e3; // Convert from milliseconds to seconds
-}
+
 //if we seen center start precisionDiving and align with tags
 if(centerSeen)
 {
 
   if (first_center && isPrecisionDriving)
   {
-    isPrecisionDriving = true;
+
     centerApproach = true;
 
     cout << "DROPOFF - First time seeing center setting precisionDriving" << endl;
     first_center = false;
-    result.type = precisionDriving;
-    result.pd.cmdVel = 0;
-    result.pd.cmdAngularError= 0;
+
+    result.type = behavior;
     result.reset = false;
-    result.PIDMode = SLOW_PID;
+    result.b = nextProcess;
+
+    //result.type = precisionDriving;
+    //result.pd.cmdVel = 0;
+    //result.pd.cmdAngularError= 0;
+  //  result.reset = false;
+    //result.PIDMode = SLOW_PID;
     return result;
 
   }
+  isPrecisionDriving = true;
   //if we have not centered up with home
   if(!CNMCentered)
   {
+    result.type = precisionDriving;
+    result.PIDMode = SLOW_PID;
     DropOffController::cnmCenteringNow();
   }
   //once centered drive forward and stop after dropoff timer complete

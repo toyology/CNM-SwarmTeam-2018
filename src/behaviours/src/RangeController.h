@@ -59,8 +59,9 @@ class RangeCircle : public RangeShape {
 
  public:
   RangeCircle( Point center, float radius ); 
-  
   bool isInside( Point coords ) override;
+  //KAILY CNM CODE
+  bool isOutside( Point coords );
 
  private: 
   float radius = 0.0;
@@ -76,6 +77,8 @@ class RangeRectangle : public RangeShape {
   RangeRectangle( Point center, float width, float height ); 
   
   bool isInside( Point coords ) override;
+  //KAILY CNM CODE
+  bool isOutside(Point coords);
 
  protected: 
   float width = 0.0;

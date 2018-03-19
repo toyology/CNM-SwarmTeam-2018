@@ -86,7 +86,7 @@ Result SearchController::DoWork()
         }
     }
     result.type = waypoint;
-    Point  searchLocation;
+    Point searchLocation;
     
     //Added 3-10-2018 for obstacle handling
     if(!cnmObstacleAvoided)
@@ -527,7 +527,10 @@ void SearchController::SetSearchCounter(double searchCounter)
     this->searchCounter = searchCounter;
 }
 
-void SearchController::ProcessData() {}
+void SearchController::ProcessData() 
+{
+    //AJH do something here????
+}
 
 bool SearchController::ShouldInterrupt()
 {
@@ -728,3 +731,52 @@ bool SearchController::CNMCurrentLocationAVG()
     }
 }
 
+bool SearchController::updateSearch(){
+    //first, check if stash is empty
+    //if it is not, return to our previous search state, if possible
+    if(stash.wpts.waypoints.size()!=0)
+    {
+        result = stash;
+        cnmSearchLoop = stashLoop;
+        searchCounter = stashCounter;
+        //since we still have work on our previous search, return false
+        return false;
+    }
+    //if stash is empty, then we need to go to our next gridpoint, I guess?
+    //so return true to indicate we can update our search location
+    return true;
+}
+
+void SearchController::setStartingPoint(Point p, double radius){
+    //set our initial starting point for a search area
+    //first, tell our search controller that this is the first waypoint
+    first_waypoint = true;
+    //then, clear our current results.waypoints vector
+    result.wpts.waypoints.clear();
+    //then, add our grid area's center point to our waypoints list  
+    result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
+    //reset our search state to a wagon wheel? yes?
+    searchState = SearchState::SECTOR;
+    cnmSearchLoop = 0;
+    searchCounter = 0;
+}
+
+void SearchController::stashCurrentSearch()
+{
+    //if there are current seach waypoints
+    if(!result.wpts.waypoints.size()==0)
+    {
+        //copy current waypoints into our stash
+        stash = result;
+        stashLoop = cnmSearchLoop;
+        stashCounter = searchCounter;
+        cnmSearchLoop = 0;
+    }
+}
+
+void SearchController::clearStash()
+{
+    stash.wpts.waypoints.clear();
+    stashLoop = 0;
+    stashCounter = 0;
+}

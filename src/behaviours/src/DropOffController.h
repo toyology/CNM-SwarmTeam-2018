@@ -37,6 +37,24 @@ public:
 
   void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation);
 
+  bool CNMCentered;
+  void cnmCenteringNow();
+  void finalAdjustmentBeforeDrop();
+
+  bool readyToDrop = false;
+  double cTagcount = 0;
+  bool cnmReverse = false;
+  bool isDroppingOff = false;
+  bool backUp = false;
+  bool firstReverse = true;
+  bool centerSeen = false;
+
+  bool dropTimerStatered = false;
+  bool reverseTimerStatered = false;
+  bool cnmDropoff180 = false;
+  bool cnm180Finished = true;
+  bool the180TimerStatered = false;
+
 private:
 
   void ProcessData();
@@ -50,8 +68,14 @@ private:
   const float collectionPointVisualDistance = 0.2; //in meters
   const float initialSpinSize = 0.05; //in meters aka 10cm
   const float spinSizeIncrement = 0.50; //in meters
-  const float searchVelocity = 0.15; //in meters per second
+  const float searchVelocity = 0.15; //in meters per second was 0.15
   const float dropDelay = 0.5; //delay in seconds for dropOff
+  float cnmDropoffTimer = 2.8; //delay in seconds for dropOff
+  float cnmReverseTimer = 5.0; //delay in seconds for Reverse
+  float cnm180Timer = 3.0;
+  float cnmDropoffTimerElapsed = 0; //elapsed time for dropoff timer
+  float cnmReverseTimerElapsed = 0;
+
 
 
 
@@ -67,6 +91,15 @@ private:
   //Timer for return code (dropping the cube in the center)- used for timerTimeElapsed
   long int returnTimer;
 
+  //Timer for dropoff code (dropping the cube in the center)- used for timerTimeElapsed
+  long int cnmDropoffTimerStart;
+
+  //Timer for reversing out of home code (dropping the cube in the center)- used for timerTimeElapsed
+  long int cnmReverseTimerStart;
+
+  long int cnm180TimerStart;
+
+
   //Time since last exceeding the tag threshold
   long int lastCenterTagThresholdTime;
 
@@ -81,6 +114,9 @@ private:
   //Count of tags on the left and right, respectively
   int countLeft;
   int countRight;
+
+  int negLeft;
+  int negRight;
 
   //Center and current locations as of the last call to setLocationData
   Point centerLocation;

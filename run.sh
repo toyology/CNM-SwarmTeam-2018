@@ -18,8 +18,6 @@ pkill rosmaster
 echo Killing roscore
 pkill roscore
 roscore &
-source devel/setup.bash &
-rosmake swarmie_msgs &
 sleep 2
 rqt -s rqt_rover_gui
 # The rover program cleans up after itself but if there is a crash this helps to make sure there are no leftovers

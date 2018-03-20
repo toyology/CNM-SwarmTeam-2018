@@ -47,8 +47,6 @@ PullGit_Pack()
 			{
 				echo 'Compiling $dirName branch $branch...';
 				catkin build &&
-				source devel/setup.bash &
-				rosmake swarmie_msgs &
 				{
 					cd -;
 					echo 'Packing up the repository... ';
@@ -74,8 +72,6 @@ Pack()
 		{
 			echo 'Compiling $dirName';
 			catkin build &&
-			source devel/setup.bash &
-			rosmake swarmie_msgs &
 			{
 				cd ~;
 				echo 'Packing up the repository... ';

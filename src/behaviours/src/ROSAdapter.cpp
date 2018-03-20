@@ -42,6 +42,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <math.h>
 
 using namespace std;
 
@@ -85,7 +86,6 @@ void sortOrder();     //SortOrder
 
 Point updateCenterLocation();		//calls transformMapCenterToOdom, returns a center location in ODOM frame
 void transformMapCentertoOdom();	//checks ODOMs perceived idea of where the center is with a stored GPS center coordinate and adjusts ODOM center value to account for drift
-
 
 // Numeric Variables for rover positioning
 geometry_msgs::Pose2D currentLocation;		//current location using ODOM
@@ -158,17 +158,12 @@ ros::Subscriber odometrySubscriber;
 ros::Subscriber mapSubscriber;
 ros::Subscriber virtualFenceSubscriber;
 // manualWaypointSubscriber listens on "/<robot>/waypoints/cmd" for
-// swarmie_msgs::Waypoint messages.
 
 ros::Subscriber manualWaypointSubscriber;
 ros::Subscriber startOrderSub;			//startOrder
 ros::Subscriber sortOrderSub;			//SortOrder
 ros::Subscriber myNameSub;
 ros::Subscriber broadcastSub;
-//ros::Subscriber obstacleWaypointSub;
-//ros::Subscriber broadcastObstacleSub;
-//ros::Subscriber miscWaypointSub;
-//ros::Subscriber broadcastMiscSub;
 
 // Timers
 ros::Timer stateMachineTimer;
@@ -219,26 +214,32 @@ void CNMAVGCenter();       //Averages derived center locations
 bool purgeMap = false;
 
 //AJH added variables:
-
+int switchSwarmie = 0;
 bool roleReady = true;
-bool firstUpdate = true;
-bool secondUpdate = true;
-bool thirdUpdate = true;
-
+bool gpsAverageSent = false;
+int gpsCount = 0;
+int update = 1;
 enum class Role{
     //teamsize == 3
     gather1, //searches close to center, gathers drop offs from searchers, helps searchers
     searcher1, //searches assigned areas, drops off for gatherer
     searcher2, //searches assigned areas, drops off for gatherer
     //teamsize == 6 (or > 3)
-    hybrid1,  //hybrid searches & gathers based on time
+    gather2,  //hybrid searches & gathers based on time
     searcher3, //searches assigned areas, drops off for gatherer
-    hybrid2 //hybrid searches & gathers based on time
+    searcher4 //hybrid searches & gathers based on time
   };
 //variable to hold my role
 Role myRole;
 int myStartTime;
+const int* myAreasBig;
+const int* myAreasSmall;
 vector<ros::Publisher> comms;
+//my integer id, which prompts swarmie role selection/assignment
+int myID;
+//set this to something big initially so we don't update tasks every timer tick
+float taskTime = 100;
+ros::NodeHandle *cnm_NH;
 
 swarmie_msgs::Waypoint wmsg;
 swarmie_msgs::Waypoint my_msg;
@@ -246,16 +247,32 @@ std_msgs::String startMsg;
 std_msgs::String Msg;    //sortOrder
 
 bool hasTested = false;
+bool gpsAveraged = false;
+bool mapBuilt = false;
 vector<std::string> swarmieNames;
 void assignSwarmieRoles(int startTime);
-void updateBehavior(int currentTime);
+void updateBehavior(int currentTime, int update);
+void buildMap();
+//build & store our 25 grid areas as points, which 
+//will become fence locations
+Point mapAreas[25];
+//create an array to store up to 30 obstacle locations 
+//as 'fences' built with range controller
+RangeController foundObstacles[30]; 
+//AJH for testing, obvs. Hoping that was obvious to everyone involved
 void testStuff();
-int myID;
-ros::NodeHandle *cnm_NH;
+//Kaily's Outlier Code
+Point coord[50];
+Point removeOutliers(int data_types, Point gps_points[], int data_points);
+double fireTimer = 3.25;
+int indexTest = 0;
+
 
 //ARRAYS FOR CENTER
-const int ASIZE = 100;
+const int ASIZE = 200;
 int centerIndex = 0;
+
+//TODO AJH possibly we're no longer using those???
 bool maxedCenterArray = false;
 
 const int CASIZE = 30;
@@ -265,10 +282,10 @@ float avgCurrentCoordsY[CASIZE];
 
 //Point cnmCurrentLocation;
 void CNMCurrentLocationAVG();      //Averages current location on map
-
 void CNMProjectCenter();
 
 //Actual Center Array
+Point CenterCoords[ASIZE];
 float CenterXCoordinates[ASIZE];
 float CenterYCoordinates[ASIZE];
 
@@ -335,12 +352,15 @@ int main(int argc, char **argv) {
   //AJH: each swarmie has an individual and broadcast subscriber, because some messages are targeted
   //but some messages will need to be sent out to all swarmies at once
   myNameSub =  mNH.subscribe(("dear"+publishedName), 10, &myMessageHandler);
-  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler);
+
+  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler); 
 
   //CNM CODE
   startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
   sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
-  //AJH: each swarmie publishes to a single swarmie based on roles, etc.
+
+  //all swarmies subscribe to the broadcast message, and all swarmies hail to the hypnotoad
+
   broadcastPub = mNH.advertise<swarmie_msgs::Waypoint>("broadcast", 100, true);
 
   status_publisher = mNH.advertise<std_msgs::String>((publishedName + "/status"), 1, true);
@@ -402,8 +422,34 @@ int main(int argc, char **argv) {
 // This function calls the dropOff, pickUp, and search controllers.
 // This block passes the goal location to the proportional-integral-derivative
 // controllers in the abridge package.
+
 void behaviourStateMachine(const ros::TimerEvent&)
 {
+
+//const int ASIZE = 200;
+//int centerIndex = 0;
+//bool fireTimer = ((lrint(timerTimeElapsed)*10)%3 == 0);
+if(timerTimeElapsed > fireTimer && !gpsAveraged)
+{
+  if(indexTest < 50)
+  {
+    coord[indexTest].x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
+    coord[indexTest].y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
+    cout << "OUTLIER - current time is "<< fireTimer <<", reading gps pt # " << indexTest <<": " << coord[indexTest].x << ", " << coord[indexTest].y << endl;
+    coord[indexTest].theta = currentLocationMap.theta;
+    indexTest++;
+  }  
+  if(indexTest == 50 && !gpsAveraged)
+  {
+    cout << "OUTLIER - finished collecting points" << endl;
+    gpsAveraged = true;
+    cnmCenterLocation = removeOutliers(3,coord,50);
+    //logicController.SetCenterLocationMap(cnmCenterLocation);
+    cout << "OUTLIER - " << publishedName << " my pts to average: " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
+  }
+  fireTimer += .25;
+}
+
 
 if (timerTimeElapsed > 31)
 {
@@ -415,41 +461,42 @@ if (timerTimeElapsed > 33)
     sortOrder();
 }
 
-//TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role &
-// the time that they were working
-if(timerTimeElapsed > 45 && roleReady)
+
+//TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role & 
+//the time that they were working 
+//also, this is almost a minute after boot, but any earlier and we can't 
+//guarantee the efficacy of our role call messages
+if(gpsAveraged && !mapBuilt)
+
 {
-  roleReady = false;
-  assignSwarmieRoles(timerTimeElapsed);
+  if(timerTimeElapsed > 65 && roleReady)
+  {
+    roleReady = false;
+    assignSwarmieRoles(timerTimeElapsed);
+  }
+  mapBuilt = true;
+  buildMap();
 }
 
-//TODO: AJH this is just for testing! I would never in good conscience hard code
+/*
+//TODO: AJH this is just for testing! I would never in good conscience hard code 
 //a comparison to a published name. That would be silly.
-if(timerTimeElapsed > 53 && publishedName == "ajax" && firstUpdate)
+if(timerTimeElapsed > 53 && publishedName == "artemis" && firstUpdate) 
+
 {
   firstUpdate = false;
   testStuff();
-}
-//TODO: testing initial comms, comment this back in when done
-/*
-//at ~5 minutes, update our roles
-if((4 < (timerTimeElapsed/60) <= 5) && firstUpdate){
-  firstUpdate = false;
-  updateBehavior(timerTimeElapsed);
+}*/
+
+//at each taskTime elapsed (timerTimeElapsed is in seconds), 
+//update our roles
+if((timerTimeElapsed/60) >= taskTime){
+  updateBehavior(timerTimeElapsed, update);
+  //set our next task timer deadline
+  taskTime += taskTime;
+  update++;
 }
 
-//at ~10 minutes, update our roles
-if((9 < (timerTimeElapsed/60) <= 10) && secondUpdate){
-  secondUpdate = false;
-  updateBehavior(timerTimeElapsed);
-}
-
-//at ~15 minutes, update our roles
-if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
-  thirdUpdate = false;
-  updateBehavior(timerTimeElapsed);
-}
-*/
 
 /*if (sortTrigger1 == false)
 {
@@ -470,23 +517,9 @@ if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
   // auto mode but wont work in main goes here)
   if (!initilized)
   {
-    int i = centerIndex;
-    //try averaging our gps location here:
-    if( i < ASIZE)
-    {
-      CenterXCoordinates[centerIndex] = currentLocationMap.x;
-      CenterYCoordinates[centerIndex] = currentLocationMap.y;
-
-      //stringstream ss;
-      //ss << "reading position X: " <<   centerLocationMap.x << " Y: " << centerLocationMap.y << "  i: " << i << endl;
-      //msg.data = ss.str();
-      //infoLogPublisher.publish(msg);
-      centerIndex++;
-    }
+    
     if (timerTimeElapsed > startDelayInSeconds)
     {
-
-
       // initialization has run
       initilized = true;
       //TODO: this just sets center to 0 over and over and needs to change
@@ -496,10 +529,12 @@ if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
       centerOdom.theta = centerLocation.theta;
       logicController.SetCenterLocationOdom(centerOdom);
 
-      Point centerMap;
-      centerMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
-      centerMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
-      centerMap.theta = centerLocationMap.theta;
+      Point& centerMap = cnmCenterLocation;
+      //centerMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
+      //centerMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
+      //centerMap.theta = centerLocationMap.theta;
+      //just use our cnm calculated version of this
+      //&& this should mean centerMap actually points to cnmCenterMap
       logicController.SetCenterLocationMap(centerMap);
 
       /*Point cnmCenterMap;
@@ -524,8 +559,6 @@ if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
 	    }
       CNMProjectCenter();
       */
-      centerIndex = 0;
-      CNMProjectCenter();
 
       centerLocationMap.x = centerMap.x;
       centerLocationMap.y = centerMap.y;
@@ -587,7 +620,6 @@ if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
 
       sendDriveCommand(result.pd.left,result.pd.right);	//uses the results struct with data sent back from logic controller to send motor commands
 
-
       //Alter finger and wrist angle is told to reset with last stored value if currently has -1 value
       std_msgs::Float32 angle;
       if (result.fingerAngle != -1)
@@ -606,8 +638,8 @@ if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
     }
 
     //publishHandeling here
-    //logicController.getPublishData(); //Not Currently Implemented, used to get data from logic controller and publish to the appropriate ROS Topic; Suggested
 
+    //logicController.getPublishData(); //Not Currently Implemented, used to get data from logic controller and publish to the appropriate ROS Topic; Suggested
 
     //adds a blank space between sets of debugging data to easily tell one tick from the next
     cout << endl;
@@ -699,10 +731,46 @@ void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& messag
 							    tagPose.pose.orientation.w ) );
       tags.push_back(loc);
 
-
     }
 
     logicController.SetAprilTags(tags);
+    
+    //TODO AJH added code here to send swarmie msg when more than 3 resources are found
+    //3 is a magic number - it's a good cutoff, because sometimes a swarmie sees one 
+    //resource & counts up to 3 tags
+    //& also if it's not home tags that it's detecting (only resources)
+    //and I'm glad I caught this now, otherwise we'd just keep calling a swarmie 
+    //& telling it about home, which is obvs not useful 
+
+    //check if we're near center, & if we're not, check tags.size()
+    if (hypot(currentLocationMap.x-centerLocationMap.x, currentLocationMap.y-centerLocationMap.y) < 0.750){
+      //if we're not at home, check if we're seeing more than three resources 
+      if(tags.size()>3 && message->detections[0].id == 0){
+        //0 == resource message within the handler MyMessageHandler
+        my_msg.action = 0;
+        //set position x & y vals to our current location (where we see resources)
+        my_msg.x = currentLocationMap.x;
+        my_msg.y = currentLocationMap.y;
+        //send resource messa
+        if(comms.size()<4){
+          //send resource message to the gatherer swarmie
+          comms.at(0).publish(my_msg);
+        }
+        if(comms.size()>4){
+          //switch off sending to gatherer 1 & hybrid
+          //for every third message?
+          if(switchSwarmie%2 == 0){
+            //publish every other message to gatherer #2
+            comms.at(3).publish(my_msg);
+          }
+          else{
+            comms.at(0).publish(my_msg);
+          }
+          switchSwarmie++;
+        }
+      }
+    }
+
   }
 
 }
@@ -1044,10 +1112,6 @@ void sortOrder()
 
 void sortOrderHandler(const std_msgs::String& msg)
 {
-
-//TODO: is this the handler that receives the initial start message?
-   //if so, what the hell is our initial start message?
-
    //Hijacking this event handler for my own nefarious purposes
    //in theory, we only get one message from each swarmie on boot up
    //and in this case, that should just be our all the hostnames we have received thus far
@@ -1066,7 +1130,8 @@ void sortOrderHandler(const std_msgs::String& msg)
       results.push_back(item);
   }
 
-  /*
+
+  /* //Should Delete??? Was in merge conflict...
   string buf; // Have a buffer string
   stringstream ss(allNames); // Insert the string into a stream
 
@@ -1075,7 +1140,7 @@ void sortOrderHandler(const std_msgs::String& msg)
     results.push_back(buf);
   }
   */
-
+  
    //std_msgs::String msgList;
    //stringstream ffs;
    //ffs << publishedName <<"'s list has " << swarmieNames.size() << " elements, rcv'd list has " << results.size();
@@ -1105,46 +1170,49 @@ void sortOrderHandler(const std_msgs::String& msg)
        }
      }
    }
+} 
 
-}
 
-//store up to 30 fence locations
-RangeController myFences[30];
+void myMessageHandler(const swarmie_msgs::Waypoint& my_msg)
+{
 
-void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
+
   stringstream rcvd;
 
   msg.data = rcvd.str();
   infoLogPublisher.publish(msg);
   //AJH: do stuff
-  int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type
+
+  int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type  
 
   if (msg_type == swarmie_msgs::Waypoint::ACTION_REACHED)
   {
-    logicController.setVirtualFenceOff();
+    //do something?
   }
   else
   {
     // Elements 2 and 3 are the x and y coordinates of the range center
     Point center;
-    //center.x = my_msg.data[1]; // Range center x
-    //center.y = my_msg.data[2]; // Range center y
+    center.x = my_msg.x; // Range center x
+    center.y = my_msg.y; // Range center y
 
     // If the shape type is "circle" then element 4 is the radius, if rectangle then width
     switch ( my_msg.action )
     {
-      case swarmie_msgs::Waypoint::ACTION_ADD: //resource message
+      case swarmie_msgs::Waypoint::ACTION_ADD: //resource message -> action = 0
       {
         float radius = 1.5;
         //TODO: AJH for now, just see if we can effectively pull usable info out of these messages
         rcvd << "rcv'd resource msg points: (" << my_msg.x << ", " << my_msg.y << ")";
         msg.data = rcvd.str();
         infoLogPublisher.publish(msg);
+        logicController.goHelp(center, radius);
+        //logicController.
         //logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
         //logicController.setInterconnectedCOntroller thing here
         break;
       }
-      case swarmie_msgs::Waypoint::ACTION_REMOVE: //obstacle message
+      case swarmie_msgs::Waypoint::ACTION_REMOVE: //obstacle message -> action = 1
       {
         //build inside-out fence around obstacle
         //logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
@@ -1167,7 +1235,9 @@ void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
         Point obstacleLoc;
         obstacleLoc.x = center.x;
         obstacleLoc.y = center.y;
-        //logicController.setVirtualFenceOn( new RangeCircle(obstacleLoc, 0.5));
+        //RangeController::RangeCircle newFence = RangeController::RangeCircle(obstacleLoc, 0.5);
+        //myFences.push_back(newFence);
+        //logicController.setVirtualFenceOn(newFence);
         //RangeController::RangeCircle(obstacleLoc, 0.5);
         break;
       }
@@ -1311,71 +1381,97 @@ void CNMCurrentLocationAVG()
 	    index = 0;
 	    //return true;
     }
-
 }
 
 void assignSwarmieRoles(int currentTime){
-
-    //vector<string> swarmieNames = names;
-    int numSwarmies = swarmieNames.size();
-    //comms = array<ros::Publisher,numSwarmies>;
-    //build one publisher per swarmie
-    for(int i = 0; i < numSwarmies; i++){
-      string& name = swarmieNames.at(i);
-      //cnm_NH points to mNH, so we dereference it here to build our comms publishers
-      namedSwarmiePub = cnm_NH->advertise<swarmie_msgs::Waypoint>(("dear" + name), 100, true);
-      //std_msgs::String test;
-      //test.data = ("test from " + publishedName + " in assign roles");
-      //namedSwarmiePub.publish(test);
-      comms.push_back(namedSwarmiePub);
-      msg.data = ("I created a publisher for " + name);
-      if(name == publishedName)
-      {
-        myID = i;
-        stringstream temp;
-        temp << "That's me! I created a publisher to myself. My ID is " << myID << "!";
-        msg.data = temp.str();
-      }
-      infoLogPublisher.publish(msg);
+  myStartTime = currentTime;
+  int numSwarmies = swarmieNames.size();
+  //comms = array<ros::Publisher,numSwarmies>;
+  //build one publisher per swarmie
+  for(int i = 0; i < numSwarmies; i++){
+    string& name = swarmieNames.at(i);
+    //cnm_NH points to mNH, so we dereference it here to build our comms publishers
+    namedSwarmiePub = cnm_NH->advertise<swarmie_msgs::Waypoint>(("dear" + name), 100, true);
+    comms.push_back(namedSwarmiePub);
+    //msg.data = ("I created a publisher for " + name);
+    if(name == publishedName)
+    {
+      myID = i;
+      //stringstream temp;
+      //temp << "That's me! I created a publisher to myself. My ID is " << myID << "!";
+      //msg.data = temp.str();
     }
+    //infoLogPublisher.publish(msg);
+  }
 
-    //method variables
-    //int numSwarmies = comms.size(); // set once @ 1min; unchanged after
-    myStartTime = currentTime;
+  //write our roles to our swarmie's memory - that way, if 
+  //he drops offline & reboots at some point, he still has an idea of what he was doing & 
+  //when he started doing it.
+  //system();
 
-    //fire initial behavior starts now
-    //assign my role based on myID and swarmie team size:
-    switch(myID){//myRole){
+  //fire initial behavior starts now
+  //assign my role based on myID and swarmie team size:
+  double increment = 0.0;
+  switch(myID){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
       case 0://gather1:
-        myRole = Role::gather1;
-        msg.data = ("I am a gatherer!"); //My role is: " + myRole.toString());
+
+        myRole = Role::gather1;           
+        msg.data = ("I am a gatherer! (gather1)"); //My role is: " + myRole.toString());
         infoLogPublisher.publish(msg);
-        break;
-      //searchers should get their initial grid areas, which are calculated based on team size and
+        static const int myBigArray1[8] = {6,7,8,11,12,16,17,18};
+        myAreasBig = &myBigArray1[0];
+        //TODO: start the octagon (inner loop)
+        if(numSwarmies > 4)
+        {
+          increment = 0.50;
+        }
+        else
+        {
+          increment = 1.00;
+        }
+        //start our first octagon 1.5 m from center
+        logicController.startGather(increment, 1.5, cnmCenterLocation);
+        break;  
+      //searchers should get their initial grid areas, which are calculated based on team size and 
       //divided based on location
-      //see map on slack
+      //see map on slack 
+      case 3://gather2
+      {
+        myRole = Role::gather2;
+        msg.data = ("I am a gatherer! (gather2)");
+        infoLogPublisher.publish(msg);
+        static const int myBigArray2[8] = {6,7,8,11,12,16,17,18};
+        myAreasBig = &myBigArray2[0];
+        //TODO: start the octagon (outer loop)
+        increment = 1.00;
+        //start our first octagon 1.5 m from center
+        logicController.startGather(increment, 2.0, cnmCenterLocation);
+        break;
+      }  
+
       case 1://searcher1:
         myRole = Role::searcher1;
         msg.data = ("I am a searcher! (searcher1)");
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
-        if(numSwarmies > 4){
-          //build set of appropriately size fences:
-          Point gridPoint;
-          gridPoint.x = 0.0;
-          gridPoint.y = 0.0;
-          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 22/7, 22/7);
-          //RangeRectangle::RangeRectangle(GRID POINT, 22/7, 22/7);
+        if(numSwarmies > 4)
+        {
+          static const int myBigArray3[8] = {1,0,5,10,15,20,21,22};
+          myAreasBig = &myBigArray3[0];
+          taskTime = 3.50;
+          logicController.changeAreas(mapAreas[myAreasBig[0]], 2.2);
         }
-        else{
-          //build set of appropriately size fences:
-          //RangeRectangle::RangeRectangle(GRID POINT, 3, 3);
-          Point gridPoint;
-          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 3, 3);
+        else
+        {
+          static const int mySmallArray1[4] = {1,0,5,10};
+          myAreasSmall = &mySmallArray1[0];
+          taskTime = 1.75;
+          logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.5);
         }
+
         break;
       case 2://searcher2:
         myRole = Role::searcher2;
@@ -1383,45 +1479,41 @@ void assignSwarmieRoles(int currentTime){
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
-        if(numSwarmies > 4){
-          //build set of appropriately size fences:
-          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 22/7, 22/7);
-          //RangeRectangle::RangeRectangle(GRID POINT, 22/7, 22/7);
+        if(numSwarmies > 4)
+        {
+          static const int myBigArray4[8] = {2,3,4,9,14,19,24,23};
+          myAreasBig = &myBigArray4[0];
+          logicController.changeAreas(mapAreas[myAreasBig[0]], 2.2);
+          taskTime = 3.50;
         }
-        else{
-          //build set of appropriately size fences:
-          //RangeRectangle::RangeRectangle(GRID POINT, 3, 3);
-          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 3, 3);
+        else
+        {
+          static const int mySmallArray2[4] = {2,3,4,9};
+          myAreasSmall = &mySmallArray2[0];
+          taskTime = 1.75;
+          logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.5);
         }
+
         break;
       case 4://searcher3:
         myRole = Role::searcher3;
         msg.data = ("I am a searcher! (searcher3)");
         infoLogPublisher.publish(msg);
-        //build fence grids & assign subsets of grid:
-        // for the grid fence
-        if(numSwarmies > 4){
-          //build set of appropriately size fences:
-          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 22/7, 22/7);
-          //RangeRectangle::RangeRectangle(GRID POINT, 22/7, 22/7);
-        }
-        else{
-          //build set of appropriately size fences:
-          //RangeRectangle::RangeRectangle(GRID POINT, 3, 3);
-          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 3, 3);
-        }
+        static const int mySmallArray3[4] = {15,20,21,22};
+        myAreasSmall = &mySmallArray3[0];
+        taskTime = 3.50;
+        logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
+
         break;
-      //hybrids will search areas and be on call for other swarmies' resource calls.
-      //they search a smaller subset of areas than regular searchers receive
-      case 3://hybrid1:
-        myRole = Role::hybrid1;
-        msg.data = ("I am a hybrid! (hybrid1)");
+      case 5://searcher4
+        myRole = Role::searcher4;
+        msg.data = ("I am a searcher! (searcher4)");
         infoLogPublisher.publish(msg);
-        break;
-      case 5://hybrid2:
-        myRole = Role::hybrid2;
-        msg.data = ("I am a hybrid! (hybrid2)");
-        infoLogPublisher.publish(msg);
+        static const int mySmallArray4[4] = {14,19,24,23};
+        myAreasSmall = &mySmallArray4[0];
+        taskTime = 3.50;
+        logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
+
         break;
       default:
         msg.data = ("I don't recognize that role, sorry!");
@@ -1432,29 +1524,42 @@ void assignSwarmieRoles(int currentTime){
     return;
 }
 
-void updateBehavior(int currentTime){
+void updateBehavior(int currentTime, int update){
     //update behavior roles for searchers and hybrids,
     //update gatherer behavior as necessary (if timer > 15 minutes-startTime)
     //AJH TODO: timer needs to be in seconds, because that is what we are passing it
     msg.data = ("Updating role - the current time is: " + currentTime);
     infoLogPublisher.publish(msg);
+    Point next;
     switch(myRole){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
-      case Role::gather1:
+
+      case Role::gather1: 
+      case Role::gather2:
+
         break;
       //searchers should get their initial grid areas, which are calculated based on team size and
       //divided based on location
       //see map on slack
       case Role::searcher1:
       case Role::searcher2:
+        if(swarmieNames.size()>4){
+          next = mapAreas[myAreasSmall[update]];
+          logicController.changeAreas(next, 1.5);
+        }
+        else{
+          next = mapAreas[myAreasBig[update]];
+          logicController.changeAreas(next, 2.2);
+        }
+        break;
       case Role::searcher3:
+      case Role::searcher4:
+        next = mapAreas[myAreasSmall[update]];
+        logicController.changeAreas(next, 2.2);
         break;
       //hybrids will search areas and be on call for other swarmies' resource calls.
       //they search a smaller subset of areas than regular searchers receive
-      case Role::hybrid1:
-      case Role::hybrid2:
-        break;
       default:
         //swarmie > 6 defaults to search?
         break;
@@ -1478,4 +1583,164 @@ void testStuff(){
     //msg.data = "testing publishers...";
     //infoLogPublisher.publish(msg);
   }
+}
+
+void buildMap()
+{
+  //offset depends on swarmie team size
+  double y_offset = 0;
+  double y_start = 0;
+  double x_offset = 0;
+  double x_start = 0;
+  if(swarmieNames.size() > 4)
+  {
+    y_offset = 22/5;
+    y_start = 22/2.5;
+    x_offset = 22/5;
+    x_start = -22/2.5;
+  }
+  else
+  {
+    y_offset = 3;
+    y_start = 6;
+    x_offset = 3;
+    x_start = -6;
+  }
+  //this value is hardcoded because we always subdivide our areas into 
+  //5x5 grids, for reasons thank-you-very-much.
+  //I'd ask that you not continue to question my judgement on this matter  
+  for(int i = 0; i < 5; i++){
+    Point temp;
+    temp.y = cnmCenterLocation.y + y_start;
+    //decrement y offset in our outer loop each time we fire 
+    //reset our x_offset each time we loop through
+    y_start = y_start - y_offset;
+    int x = x_start;
+    for(int k = 0; k < 5; k++){
+      //TODO AJH centerLocation, or centerLocationMap?
+      temp.x = cnmCenterLocation.x + x;
+      temp.theta = atan(temp.y/temp.x);
+      int index = i*5 + k;
+      mapAreas[index] = temp;
+      //increment x value each time we go through inner loop
+      //& outer loop will reset value each time this loop finishes
+      x += x_offset;
+    }
+  }
+}
+
+Point removeOutliers(int data_types, Point gps_points[], int data_points) {
+  // print
+  cout << "Outlier - Averaging Points" << endl;
+  
+  // return array
+  Point mean_new; // Averaged point returned as the centerLocation.x & *.y
+  
+  switch(data_types) {
+    case 3: // theta std_dev
+    {     
+      // variables for summed data_points
+      float sum_data = 0;
+      float sum_data_squared = 0;
+      float n = (float)data_points;
+      
+      // find sum_data & sum_data_squared
+      for (int i = 0; i < data_points; i++) {
+        sum_data += gps_points[i].theta;
+        sum_data_squared += pow(gps_points[i].theta,2);
+      }
+      
+      float mean_theta = sum_data/n;
+      float std_dev = pow((sum_data_squared-(pow(sum_data,2)/n))/n,0.5);
+      float sum_new = 0;
+      
+      // ignore if abs(theta) +- 1.5 std_dev
+      // calculates ranges
+      float small = mean_theta - (1.5*std_dev);
+      float big = mean_theta + (1.5*std_dev);
+      
+      // finds new sums without ignored values
+      for (int i = 0; i < data_points; i++) {
+        if ((gps_points[i].theta > small)&&(gps_points[i].theta < big)) {
+          sum_new += gps_points[i].theta;
+        } else {
+          n -= 1;
+        }
+      }
+      
+      // result
+      mean_new.theta = sum_new/n;
+      cout << "Averaged theta: " << mean_new.theta << endl;
+      
+    } 
+    case 2: // x,y std_dev
+    {
+      // variables for summed data_points
+      float sum_data_x = 0;
+      float sum_data_y = 0;
+      float sum_data_squared_x = 0;
+      float sum_data_squared_y = 0;
+      //TODO removed float cast AJH
+      int n_x = data_points;
+      int n_y = data_points;
+      
+      // find sum_data & sum_data_squared
+      for (int i = 0; i < data_points; i++) {
+        // x
+        sum_data_x += gps_points[i].x;
+        sum_data_squared_x += pow(gps_points[i].x,2);
+        
+        // y
+        sum_data_y += gps_points[i].y;
+        cout << "OUTLIER - y val " << gps_points[i].y << endl;
+        sum_data_squared_y += pow(gps_points[i].y,2);
+      }
+      
+      // x values
+      float mean_x = sum_data_x/n_x;
+      float std_dev_x = pow((sum_data_squared_x-(pow(sum_data_x,2)/n_x))/n_x,0.5);
+      float sum_new_x = 0;
+      
+      // y values
+      float mean_y = sum_data_y/n_y;
+      cout << "OUTLIER - mean y " << mean_y << endl;
+      float std_dev_y = pow((sum_data_squared_y-(pow(sum_data_y,2)/n_y))/n_y,0.5);
+      cout << "OUTLIER - std dev y " << std_dev_y << endl;
+      float sum_new_y = 0;
+      
+      // ignore if abs(theta) +- 1.5 std_dev
+      // calculates ranges
+      float small_x = mean_x - (1.5*std_dev_x);
+      float big_x = mean_x + (1.5*std_dev_x);
+      float small_y = mean_y - (1.5*std_dev_y);
+      float big_y = mean_y + (1.5*std_dev_y);
+      
+      // finds new sums without ignored values
+      for (int i = 0; i < data_points; i++) {
+        if ((gps_points[i].x > small_x)&&(gps_points[i].x < big_x)) {
+          sum_new_x += gps_points[i].x;
+        } else {
+          n_x--;// 1;
+        }
+        
+        if ((gps_points[i].y > small_y)&&(gps_points[i].y < big_y)) {
+          sum_new_y += gps_points[i].y;
+        } else {
+          n_y--;// 1;
+        }
+      }
+      
+      // result
+      cout << "OUTLIER - x pts to average " << n_x << endl;
+      cout << "OUTLIER - y pts to average " << n_y << endl;
+      mean_new.x = sum_data_x/n_x;
+      mean_new.y = sum_data_y/n_y;
+      cout << "OUTLIER - Averaged (x,y): (" << mean_new.x << "," << mean_new.y << ")" << endl;
+      
+    }
+    
+  }
+
+  return mean_new;
+  
 }

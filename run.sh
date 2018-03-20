@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Running in $PWD" 
+echo "Running in $PWD"
 previous_gazebo_model_path=${GAZEBO_MODEL_PATH}
 previous_gazebo_plugin_path=${GAZEBO_PLUGIN_PATH}
 export SWARMATHON_APP_ROOT="$PWD"
@@ -22,7 +22,7 @@ sleep 2
 rqt -s rqt_rover_gui
 # The rover program cleans up after itself but if there is a crash this helps to make sure there are no leftovers
 echo Cleaning up ROS and Gazebo Processes
-rosnode kill -a 
+rosnode kill -a
 echo Killing rosmaster
 pkill rosmaster
 echo Killing roscore

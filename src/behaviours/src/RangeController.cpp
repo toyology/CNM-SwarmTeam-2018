@@ -27,6 +27,14 @@ bool RangeCircle::isInside( Point coords)
   return sqrt((center.x-coords.x)*(center.x-coords.x) + (center.y-coords.y)*(center.y-coords.y)) < radius;
 }
 
+//KAILY CNM CODE
+bool RangeCircle::isOutside( Point coords ) // CNM kaily: inverted circle vf
+{
+  // Return whether the coordinates given are outside the
+  // radius of the circle. The mathematical expression is just the distance formula.
+  return sqrt((center.x-coords.x)*(center.x-coords.x) + (center.y-coords.y)*(center.y-coords.y)) > radius;
+}
+
 RangeRectangle::RangeRectangle( Point center, float width, float height )
 {
   // Don't allow rectangles with negative sides
@@ -49,6 +57,20 @@ bool RangeRectangle::isInside( Point coords )
     }
   
 return false;
+}
+
+//KAILY CNM CODE
+bool RangeRectangle::isOutside(Point coords) // CNM kaily: inverted circle vf
+{
+  if ( coords.x > center.x+width/2.0 
+    && coords.x < center.x-width/2.0 
+    && coords.y > center.y+height/2.0 
+    && coords.y < center.y-height/2.0)
+  {    
+    // Return whether the coordinates given are outside the area of the square
+    return true;
+  }
+    return false;
 }
 
 // Default constructor

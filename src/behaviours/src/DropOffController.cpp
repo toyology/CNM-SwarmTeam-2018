@@ -23,6 +23,22 @@ DropOffController::DropOffController() {
   startWaypoint = false;
   timerTimeElapsed = -1;
 
+  cnmCenteringNow = false;
+
+  readyToDrop = false;
+cTagcount = 0;
+cnmReverse = false;
+isDroppingOff = false;
+CNMCentered = false;
+backUp = false;
+firstReverse = true;
+dropTimerStatered = false;
+reverseTimerStatered = false;
+cnmDropoff180 = false;
+cnm180Finished = false;
+the180TimerStatered = false;
+
+
 }
 
 DropOffController::~DropOffController() {
@@ -45,18 +61,20 @@ Result DropOffController::DoWork() {
   //to resart our search.
   if(reachedCollectionPoint)
   {
+    cout << "DROPOFF - reachedCollectionPoint" << endl;
     cout << "2" << endl;
     if (timerTimeElapsed >= 5)
     {
       if (finalInterrupt)
       {
+        cout << "DROPOFF - Final interrupt switching to next process" << endl;
         result.type = behavior;
         result.b = nextProcess;
         result.reset = true;
         return result;
       }
       else
-      {
+      { cout << "DROPOFF - reverse timer started" << endl;
         finalInterrupt = true;
         cout << "1" << endl;
       }
@@ -65,14 +83,12 @@ Result DropOffController::DoWork() {
     {
       isPrecisionDriving = true;
       result.type = precisionDriving;
-
+      cout << "DROPOFF - opening fingers now" << endl;
       result.fingerAngle = M_PI_2; //open fingers
       result.wristAngle = 0; //raise wrist
 
-      result.pd.cmdVel = -0.2; //CNM 2017 CHANGED FROM .3
+      result.pd.cmdVel = -0.3;
       result.pd.cmdAngularError = 0.0;
-
-
     }
 
     return result;
@@ -97,21 +113,12 @@ Result DropOffController::DoWork() {
   else if (timerTimeElapsed >= 2)//spin search for center
   {
     Point nextSpinPoint;
-    //Setup get cnm current location avgerage
-    static bool averaged = false;
-    averaged = DropOffController::CNMCurrentLocationAVG();
-
-    if(averaged)
-    {
-      averaged = false;
-      cout << "AVERAGED - Averaged Current location complete" << endl;
-    }
 
     //sets a goal that is 60cm from the centerLocation and spinner
     //radians counterclockwise from being purly along the x-axis.
     nextSpinPoint.x = cnmCenterLocation.x + (initialSpinSize + spinSizeIncrease) * cos(spinner);
     nextSpinPoint.y = cnmCenterLocation.y + (initialSpinSize + spinSizeIncrease) * sin(spinner);
-    nextSpinPoint.theta = atan2(nextSpinPoint.y - cnmCurrentLocation.y, nextSpinPoint.x - cnmCurrentLocation.x);
+    nextSpinPoint.theta = atan2(nextSpinPoint.y - currentLocation.y, nextSpinPoint.x - currentLocation.x);
 
     result.type = waypoint;
     result.wpts.waypoints.clear();
@@ -151,6 +158,7 @@ Result DropOffController::DoWork() {
 
     if (first_center && isPrecisionDriving)
     {
+      cout << "DROPOFF - First time seeing center setting dropoff state" << endl;
       first_center = false;
       result.type = behavior;
       result.reset = false;
@@ -159,6 +167,50 @@ Result DropOffController::DoWork() {
     }
     isPrecisionDriving = true;
 
+    if(!CNMCentered )
+    {
+      cout << "switched to precisionDriving and for centering" << endl;
+      result.type = precisionDriving;
+      result.PIDMode = SLOW_PID;
+      cnmCenteringNow = true;
+    }
+
+    if(CNMCentered)
+    {
+
+      if(!dropTimerStatered)
+      {
+        cout << "DROPOFF - CNM Centered: " << CNMCentered << "  dropoff timer started!" << endl;
+        cnmDropoffTimerStart = current_time;
+        dropTimerStatered = true;
+
+        result.pd.cmdVel = 0.25; // was 1.5 from CNM 2017
+        result.pd.cmdAngularError  = 0.0;
+      }
+
+      //start timer for dropoff drive
+      long int  elapsedDropoff = current_time - cnmDropoffTimerStart;
+      float cnmDropoffTimerElapsed = elapsedDropoff/1e3; // Convert from milliseconds to seconds
+
+      if(cnmDropoffTimerElapsed >= cnmDropoffTimer && dropTimerStatered && !readyToDrop)
+      {
+        cout << "DROPOFF - dropoff timer: " << cnmDropoffTimerElapsed << endl;
+        cout << "DROPOFF - Dropoff Drive Timer complete stop here and drop" << endl;
+        result.pd.cmdVel = 0.00;
+        result.pd.cmdAngularError  = 0.0;
+        reachedCollectionPoint =true;
+        readyToDrop = true;
+
+      }
+      //addition adjustment while driving forward on timer (not used)
+      if(readyToDrop)
+      {
+        //cout << "DROPOFF - Now readyToDrop calling fianl adjustment" << endl;
+        //DropOffController::finalAdjustmentBeforeDrop();
+      }
+    }
+
+/*
     if (seenEnoughCenterTags) //if we have seen enough tags
     {
       if ((countLeft-5) > countRight) //and there are too many on the left
@@ -179,26 +231,106 @@ Result DropOffController::DoWork() {
     result.type = precisionDriving;
 
     //otherwise turn till tags on both sides of image then drive straight
-    if ((countLeft - 6) <= 0 && (countRight - 6) <=0) { //CNM 2017 values Go straight in
+    if (left && right) {
       result.pd.cmdVel = searchVelocity;
       result.pd.cmdAngularError = 0.0;
     }
-    else if (countLeft > (countRight - 6)) { //CNM 2017 values Turn Right
+    else if (right) {
       result.pd.cmdVel = -0.1 * turnDirection;
       result.pd.cmdAngularError = -centeringTurnRate*turnDirection;
     }
-    else if (countLeft < (countRight - 6)){ //CNM 2017 values Turn Left
+    else if (left){
       result.pd.cmdVel = -0.1 * turnDirection;
       result.pd.cmdAngularError = centeringTurnRate*turnDirection;
     }
-
-    /*
     else
     {
       result.pd.cmdVel = searchVelocity;
       result.pd.cmdAngularError = 0.0;
     }
+
     */
+    if (cnmCenteringNow)
+    {
+
+    cout << "DROPOFF - cnmCenteringNow called" << endl;
+
+    float linearSpeed, angularSpeed;
+
+    //VARIABLES
+    //-----------------------------------
+    const int amountOfTagsToSee = 5;
+    bool enoughTagsSeen = false;
+    bool right, left;
+    int count = countLeft + countRight;
+
+    if(!cnmReverse && !CNMCentered)
+    {
+        if (countRight > 0) { right = true; }
+        else { right = false; }
+
+        if (countLeft > 0) { left = true; }
+        else { left = false; }
+
+        if(count > amountOfTagsToSee) { enoughTagsSeen = true;}
+        else { enoughTagsSeen = false; }
+
+        float turnDirection = 1;
+
+        if (enoughTagsSeen) //if we have seen enough tags
+        {
+          if ((countLeft - 5) > countRight) //and there are too many on the left
+          {
+            right = false; //then we say none on the right to cause us to turn right
+          }
+          else if ((countRight - 5) > countLeft)
+          {
+            left = false; //or left in this case
+          }
+
+            //otherwise turn till tags on both sides of image then drive straight
+          if(left && right) //2017 included confirmedCenter &&
+          {
+            //confirmedCenter = false;
+            cout << "DROPOFF - CNM Centered = true" << endl;
+            CNMCentered = true;
+
+          }
+
+        }
+
+
+
+        if (right)
+        {
+          cout << "DROPOFF - Centering right" << endl;
+            linearSpeed = 0.15;
+            angularSpeed = -0.15;
+
+        }
+        else if (left)
+        {
+          cout << "DROPOFF - Centering left" << endl;
+            linearSpeed = -0.15;
+            angularSpeed = 0.15;
+
+        }
+        else
+        {
+          cout << "DROPOFF - Centering -set drive speed" << endl;
+          if(isDroppingOff) { linearSpeed = 0.25; }
+          else { linearSpeed = 0.15; }
+
+          angularSpeed = 0.0;
+
+
+        }
+
+        result.pd.cmdVel = linearSpeed;
+        result.pd.cmdAngularError = angularSpeed;
+        return result;
+    }
+    }
 
     //must see greater than this many tags before assuming we are driving into the center and not along an edge.
     if (count > centerTagThreshold)
@@ -214,10 +346,7 @@ Result DropOffController::DoWork() {
     long int elapsed = current_time - lastCenterTagThresholdTime;
     float timeSinceSeeingEnoughCenterTags = elapsed/1e3; // Convert from milliseconds to seconds
 
-    //we have driven far enough forward to have passed over the circle.
-    if (count < 1 && seenEnoughCenterTags && timeSinceSeeingEnoughCenterTags > dropDelay) {
-      centerSeen = false;
-    }
+
     centerApproach = true;
     prevCount = count;
     count = 0;
@@ -240,7 +369,7 @@ Result DropOffController::DoWork() {
       centerApproach = false;
 
       result.type = waypoint;
-      result.wpts.waypoints.push_back(this->centerLocation);
+      result.wpts.waypoints.push_back(this->cnmCenterLocation);
       if (isPrecisionDriving) {
         result.type = behavior;
         result.b = prevProcess;
@@ -279,6 +408,7 @@ void DropOffController::Reset() {
   result.wristAngle = 0.7;
   result.reset = false;
   result.wpts.waypoints.clear();
+  result.PIDMode = FAST_PID;
   spinner = 0;
   spinSizeIncrease = 0;
   prevCount = 0;
@@ -300,6 +430,23 @@ void DropOffController::Reset() {
   first_center = true;
   cout << "6" << endl;
 
+  cnmCenteringNow = false;
+
+  CNMCentered = false;
+backUp = false;
+readyToDrop = false;
+cTagcount = 0;
+cnmReverse = false;
+isDroppingOff = false;
+firstReverse = true;
+centerSeen = false;
+dropTimerStatered = false;
+reverseTimerStatered = false;
+cnmDropoff180 = false;
+cnm180Finished = false;
+the180TimerStatered = false;
+
+
 }
 
 void DropOffController::SetTargetData(vector<Tag> tags) {
@@ -314,15 +461,12 @@ void DropOffController::SetTargetData(vector<Tag> tags) {
       for (int i = 0; i < tags.size(); i++) {
         if (tags[i].getID() == 256) {
 
-
           // checks if tag is on the right or left side of the image
           if (tags[i].getPositionX() + cameraOffsetCorrection > 0) {
             countRight++;
-            cout << "TAG - Right Tag Orientation X: "<< tags[i].getOrientationX() << "  Y: " << tags[i].getOrientationY() << "  Z: " << tags[i].getOrientationZ() << endl;
 
           } else {
             countLeft++;
-
           }
         }
       }
@@ -398,53 +542,4 @@ void DropOffController::SetBlockBlockingUltrasound(bool blockBlock) {
 void DropOffController::SetCurrentTimeInMilliSecs( long int time )
 {
   current_time = time;
-}
-
-void DropOffController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
-{
-  cnmCurrentLocation = cnmAVGCurrentLocation;
-}
-
-bool DropOffController::CNMCurrentLocationAVG()
-{
-
-  const int CASIZE = 30;
-
-  float avgCurrentCoordsX[CASIZE];
-  float avgCurrentCoordsY[CASIZE];
-
-    static int index = 0;
-
-    if(index < CASIZE)
-    {
-
-       avgCurrentCoordsX[index] = currentLocation.x;
-       avgCurrentCoordsY[index] = currentLocation.y;
-
-  index++;
-
-  return false;
-    }
-    else
-    {
-  float x = 0, y = 0;
-  for(int i = 0; i < CASIZE; i++)
-  {
-      x += avgCurrentCoordsX[i];
-      y += avgCurrentCoordsY[i];
-  }
-
-  x = x/CASIZE;
-  y = y/CASIZE;
-
-  Point cnmAVGCurrentLocation;
-  cnmAVGCurrentLocation.x = x;
-  cnmAVGCurrentLocation.y = y;
-  cnmAVGCurrentLocation.theta = currentLocation.theta;
-
-  DropOffController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
-
-  index = 0;
-  return true;
-    }
 }

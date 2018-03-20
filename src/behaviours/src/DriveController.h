@@ -4,10 +4,13 @@
 #include "PID.h"
 #include "Controller.h"
 #include <angles/angles.h>
+#include <vector>
 
 class DriveController : virtual Controller
 {
 public:
+
+
   DriveController();
   ~DriveController();
 
@@ -19,6 +22,14 @@ public:
   void SetResultData(Result result) {this->result = result;}
   void SetVelocityData(float linearVelocity,float angularVelocity);
   void SetCurrentLocation(Point currentLocation) {this->currentLocation = currentLocation;}
+
+  bool getCurrLocAVG();
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation) {cnmCurrentLocation = cnmAVGCurrentLocation;}
+
+  bool CNMCurrentLocationAVG();
+
+  //static void cnmSetAvgCurrentLocation2(Point cnmAVGCurrentLocation) {cnmCurrentLocation = cnmAVGCurrentLocation;}
+
 
 private:
 
@@ -33,7 +44,7 @@ private:
 
   float rotateOnlyAngleTolerance = 0.05;  //May be too low?
   float finalRotationTolerance = 0.1; //dead code not used
-  const float waypointTolerance = 0.15; //15 cm tolerance.
+  const float waypointTolerance = 0.50; //15 cm tolerance. Originally 0.15, .75 worked smooth (sim) for Map based location
 
   //0.65 MAX value
   float searchVelocity = 0.35; // meters/second was 0.35 from basecode
@@ -49,6 +60,15 @@ private:
   Point centerLocation;
   Point centerLocationMap;
   Point centerLocationOdom;
+
+
+  //Averaged GPS center location
+  Point cnmCenterLocation;
+  //Averaged GPS current location
+  Point cnmCurrentLocation;
+
+
+
 
   vector<Point> waypoints;
 

@@ -14,6 +14,8 @@
 #include <std_msgs/Int16.h>
 #include <std_msgs/UInt8.h>
 #include <std_msgs/String.h>
+#include <std_msgs/MultiArrayLayout.h>
+#include <std_msgs/MultiArrayDimension.h>
 #include <sensor_msgs/Joy.h>
 #include <sensor_msgs/Range.h>
 #include <geometry_msgs/Pose2D.h>
@@ -26,6 +28,7 @@
 // Include Controllers
 #include "LogicController.h"
 #include <vector>
+#include <iterator>
 
 #include "Point.h"
 #include "Tag.h"
@@ -36,6 +39,9 @@
 #include <signal.h>
 
 #include <exception> // For exception handling
+
+#include <fstream>
+#include <iostream>
 
 using namespace std;
 
@@ -56,18 +62,16 @@ public:
 
 private:
   std::string msg;
-  std::string Msg; 		//sortOrder
+  //std_msgs::String Msg;     //sortOrder
 };
-
 
 // Random number generator
 random_numbers::RandomNumberGenerator* rng;
 
 // Create logic controller
-
 LogicController logicController;
 
-void humanTime();
+void humanTime();	//translates time into human time
 
 // Behaviours Logic Functions
 void sendDriveCommand(double linearVel, double angularVel);
@@ -79,50 +83,48 @@ void resultHandler();
 void CNMFirstBoot();        //StartOrder
 void sortOrder();     //SortOrder
 
-Point updateCenterLocation();
-void transformMapCentertoOdom();
+Point updateCenterLocation();		//calls transformMapCenterToOdom, returns a center location in ODOM frame
+void transformMapCentertoOdom();	//checks ODOMs perceived idea of where the center is with a stored GPS center coordinate and adjusts ODOM center value to account for drift
 
 
 // Numeric Variables for rover positioning
-geometry_msgs::Pose2D currentLocation;          //current location of robot
-geometry_msgs::Pose2D currentLocationMap;       //current location on MAP
-geometry_msgs::Pose2D currentLocationAverage;   //???
+geometry_msgs::Pose2D currentLocation;		//current location using ODOM
+geometry_msgs::Pose2D currentLocationMap;	//current location using GPS
+geometry_msgs::Pose2D currentLocationAverage;	//an average of the robots current location
 
-geometry_msgs::Pose2D centerLocation;           //location of center location
-geometry_msgs::Pose2D centerLocationMap;        //location of center on map
-geometry_msgs::Pose2D centerLocationOdom;       //location of center ODOM
-geometry_msgs::Pose2D centerLocationMapRef;
+geometry_msgs::Pose2D centerLocation;		//Not used, dead code
+geometry_msgs::Pose2D centerLocationMap;	//A GPS point of the center location, used to help reduce drift from ODOM
+geometry_msgs::Pose2D centerLocationOdom;	//The centers location based on ODOM
+geometry_msgs::Pose2D centerLocationMapRef;	//Variable used in TransformMapCenterToOdom, can be moved to make it local instead of global
 
 int currentMode = 0;
-const float behaviourLoopTimeStep = 0.1; // time between the behaviour loop calls
-const float status_publish_interval = 1;
-const float heartbeat_publish_interval = 2;
-const float waypointTolerance = 0.1; //10 cm tolerance.
+const float behaviourLoopTimeStep = 0.1; 	//time between the behaviour loop calls
+const float status_publish_interval = 1;	//time between publishes
+const float heartbeat_publish_interval = 2;	//time between heartbeat publishes
+const float waypointTolerance = 0.1; 		//10 cm tolerance.
 
 // used for calling code once but not in main
-bool initilized = false;
+bool initilized = false;	//switched to true after running through state machine the first time, initializes base values
 
-float linearVelocity = 0;
-float angularVelocity = 0;
+float linearVelocity = 0;	//forward speed, POSITIVE = forward, NEGATIVE = backward
+float angularVelocity = 0;	//turning speed, POSITIVE = left, NEGATIVE = right
 
-float prevWrist = 0;
-float prevFinger = 0;
-long int startTime = 0;
-float minutesTime = 0;
-float hoursTime = 0;
+float prevWrist = 0;	//last wrist angle
+float prevFinger = 0;	//last finger angle
+long int startTime = 0;	//stores time when robot is swtiched on
+float minutesTime = 0;	//time in minutes
+float hoursTime = 0;	//time in hours
 
+float drift_tolerance = 0.5; // the perceived difference between ODOM and GPS values before shifting the values up or down, in meters
 
-float drift_tolerance = 0.5; // meters
+Result result;		//result struct for passing and storing values to drive robot
 
-Result result;
-
-std_msgs::String msg;
-std_msgs::String Msg;			//sortOrder
+std_msgs::String msg;	//used for passing messages to the GUI
 
 
 geometry_msgs::Twist velocity;
-char host[128];
-string publishedName;
+char host[128];		//rovers hostname
+string publishedName;	//published hostname
 char prev_state_machine[128];
 
 // Publishers
@@ -133,11 +135,20 @@ ros::Publisher wristAnglePublish;
 ros::Publisher infoLogPublisher;
 ros::Publisher driveControlPublish;
 ros::Publisher heartbeatPublisher;
-// Publishes swarmie_msgs::Waypoint messages on "/<robot>/waypooints"
+// Publishes swarmie_msgs::Waypoint messages on "/<robot>/waypoints"
 // to indicate when waypoints have been reached.
 ros::Publisher waypointFeedbackPublisher;
+//AJH added publisher declaration for manual waypoint publisher
+ros::Publisher manualWaypointPublisher;
+
+//CNM publishers
 ros::Publisher startOrderPub;		//startOrder
 ros::Publisher sortOrderPub;		//SortOrder
+ros::Publisher broadcastPub;
+//ros::Publisher obstacleWaypointPub;
+//ros::Publisher miscWaypointPub;
+//TODO: testing functionality of reusing variable name
+ros::Publisher namedSwarmiePub;
 
 // Subscribers
 ros::Subscriber joySubscriber;
@@ -148,16 +159,23 @@ ros::Subscriber mapSubscriber;
 ros::Subscriber virtualFenceSubscriber;
 // manualWaypointSubscriber listens on "/<robot>/waypoints/cmd" for
 // swarmie_msgs::Waypoint messages.
+
 ros::Subscriber manualWaypointSubscriber;
 ros::Subscriber startOrderSub;			//startOrder
 ros::Subscriber sortOrderSub;			//SortOrder
+ros::Subscriber myNameSub;
+ros::Subscriber broadcastSub;
+//ros::Subscriber obstacleWaypointSub;
+//ros::Subscriber broadcastObstacleSub;
+//ros::Subscriber miscWaypointSub;
+//ros::Subscriber broadcastMiscSub;
 
 // Timers
 ros::Timer stateMachineTimer;
 ros::Timer publish_status_timer;
 ros::Timer publish_heartbeat_timer;
 
-// records time for delays in sequanced actions, 1 second resolution.
+// records time for delays in sequenced actions, 1 second resolution.
 time_t timerStartTime;
 
 // An initial delay to allow the rover to gather enough position data to
@@ -172,38 +190,87 @@ tf::TransformListener *tfListener;
 void sigintEventHandler(int signal);
 
 //Callback handlers
-void joyCmdHandler(const sensor_msgs::Joy::ConstPtr& message);
-void modeHandler(const std_msgs::UInt8::ConstPtr& message);
-void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& tagInfo);
-void odometryHandler(const nav_msgs::Odometry::ConstPtr& message);
-void mapHandler(const nav_msgs::Odometry::ConstPtr& message);
-void virtualFenceHandler(const std_msgs::Float32MultiArray& message);
-void manualWaypointHandler(const swarmie_msgs::Waypoint& message);
-void behaviourStateMachine(const ros::TimerEvent&);
-void publishStatusTimerEventHandler(const ros::TimerEvent& event);
+void joyCmdHandler(const sensor_msgs::Joy::ConstPtr& message);				//for joystick control
+void modeHandler(const std_msgs::UInt8::ConstPtr& message);				//for detecting which mode the robot needs to be in
+void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& tagInfo);	//receives and stores April Tag Data using the TAG class
+void odometryHandler(const nav_msgs::Odometry::ConstPtr& message);			//receives and stores ODOM information
+void mapHandler(const nav_msgs::Odometry::ConstPtr& message);				//receives and stores GPS information
+void virtualFenceHandler(const std_msgs::Float32MultiArray& message);			//Used to set an invisible boundary for robots to keep them from traveling outside specific bounds
+void manualWaypointHandler(const swarmie_msgs::Waypoint& message);			//Receives a waypoint (from GUI) and sets the coordinates
+void behaviourStateMachine(const ros::TimerEvent&);					//Upper most state machine, calls logic controller to perform all actions
+void publishStatusTimerEventHandler(const ros::TimerEvent& event);			//Publishes "ONLINE" when rover is successfully connected
 void publishHeartBeatTimerEventHandler(const ros::TimerEvent& event);
-void sonarHandler(const sensor_msgs::Range::ConstPtr& sonarLeft, const sensor_msgs::Range::ConstPtr& sonarCenter, const sensor_msgs::Range::ConstPtr& sonarRight);
+void sonarHandler(const sensor_msgs::Range::ConstPtr& sonarLeft, const sensor_msgs::Range::ConstPtr& sonarCenter, const sensor_msgs::Range::ConstPtr& sonarRight);	//handles ultrasound data and stores data
+
+//CNM handlers
 void startOrderHandler(const std_msgs::String& msg);			//startOrder
 void sortOrderHandler(const std_msgs::String& msg);	//SortOrder
+
+void myMessageHandler(const swarmie_msgs::Waypoint& my_msg);
 
 // Converts the time passed as reported by ROS (which takes Gazebo simulation rate into account) into milliseconds as an integer.
 long int getROSTimeInMilliSecs();
 
-
-
-
 /* CNM added code --------------------------------------------------------------
 ------------------------------------------------------------------------------*/
-
 Point cnmCenterLocation;
-void CNMAVGCenter(Point cnmCenterLocation);       //Avergages derived center locations
+bool resetMap = false;
+void CNMAVGCenter();       //Averages derived center locations
 bool purgeMap = false;
 
+//AJH added variables:
+
+bool roleReady = true;
+bool firstUpdate = true;
+bool secondUpdate = true;
+bool thirdUpdate = true;
+
+enum class Role{
+    //teamsize == 3
+    gather1, //searches close to center, gathers drop offs from searchers, helps searchers
+    searcher1, //searches assigned areas, drops off for gatherer
+    searcher2, //searches assigned areas, drops off for gatherer
+    //teamsize == 6 (or > 3)
+    hybrid1,  //hybrid searches & gathers based on time
+    searcher3, //searches assigned areas, drops off for gatherer
+    hybrid2 //hybrid searches & gathers based on time
+  };
+//variable to hold my role
+Role myRole;
+int myStartTime;
+vector<ros::Publisher> comms;
+
+swarmie_msgs::Waypoint wmsg;
+swarmie_msgs::Waypoint my_msg;
+std_msgs::String startMsg;
+std_msgs::String Msg;    //sortOrder
+
+bool hasTested = false;
+vector<std::string> swarmieNames;
+void assignSwarmieRoles(int startTime);
+void updateBehavior(int currentTime);
+void testStuff();
+int myID;
+ros::NodeHandle *cnm_NH;
+
+//ARRAYS FOR CENTER
+const int ASIZE = 100;
+int centerIndex = 0;
+bool maxedCenterArray = false;
+
+const int CASIZE = 30;
+
+float avgCurrentCoordsX[CASIZE];
+float avgCurrentCoordsY[CASIZE];
+
+//Point cnmCurrentLocation;
+void CNMCurrentLocationAVG();      //Averages current location on map
+
+void CNMProjectCenter();
 
 //Actual Center Array
-float CenterXCoordinates[20]; //was 10 for 2017
-float CenterYCoordinates[20]; //was 10 for 2017
-
+float CenterXCoordinates[ASIZE];
+float CenterYCoordinates[ASIZE];
 
 //INITIAL NEST SEARCH
 bool cnmFirstBootProtocol = true;
@@ -225,45 +292,10 @@ bool sortTrigger2 = true;
 #include <ifaddrs.h>
 #include <stdio.h>
 
-char ip_string[20];
-char *ip;
-
-char* getip ()
-{
-    struct ifaddrs *ifap, *ifa;
-    struct sockaddr_in *sa;
-    char *addr;
-
-    getifaddrs (&ifap);
-    for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family==AF_INET) {
-            sa = (struct sockaddr_in *) ifa->ifa_addr;
-            addr = inet_ntoa(sa->sin_addr);
-            printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
-            sprintf(ip_string, "%s", addr);
-            printf("%s \n", ip_string);
-        }
-    }
-
-    freeifaddrs(ifap);
-    return ip_string;
-}
 /* @@@@ */
 
-
-
-
-
 int main(int argc, char **argv) {
-
-
   /* @@@ */
-    ip = getip();
-    cout << "@@@@" << ip_string << endl;
-
-  /* @@@ */
-
-
 
   gethostname(host, sizeof (host));
   string hostname(host);
@@ -280,6 +312,8 @@ int main(int argc, char **argv) {
   // NoSignalHandler so we can catch SIGINT ourselves and shutdown the node
   ros::init(argc, argv, (publishedName + "_BEHAVIOUR"), ros::init_options::NoSigintHandler);
   ros::NodeHandle mNH;
+  cnm_NH = &mNH;
+  //stash.stashComms(&mNH);
 
   // Register the SIGINT event handler so the node can shutdown properly
   signal(SIGINT, sigintEventHandler);
@@ -295,8 +329,19 @@ int main(int argc, char **argv) {
   message_filters::Subscriber<sensor_msgs::Range> sonarCenterSubscriber(mNH, (publishedName + "/sonarCenter"), 10);
   message_filters::Subscriber<sensor_msgs::Range> sonarRightSubscriber(mNH, (publishedName + "/sonarRight"), 10);
 
+  //CNM CODE
+  startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
+  sortOrderSub = mNH.subscribe("sortOrder", 1000, &sortOrderHandler);				//sortOrder
+  //AJH: each swarmie has an individual and broadcast subscriber, because some messages are targeted
+  //but some messages will need to be sent out to all swarmies at once
+  myNameSub =  mNH.subscribe(("dear"+publishedName), 10, &myMessageHandler);
+  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler);
+
+  //CNM CODE
   startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
-    sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
+  sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
+  //AJH: each swarmie publishes to a single swarmie based on roles, etc.
+  broadcastPub = mNH.advertise<swarmie_msgs::Waypoint>("broadcast", 100, true);
 
   status_publisher = mNH.advertise<std_msgs::String>((publishedName + "/status"), 1, true);
   stateMachinePublish = mNH.advertise<std_msgs::String>((publishedName + "/state_machine"), 1, true);
@@ -305,11 +350,20 @@ int main(int argc, char **argv) {
   infoLogPublisher = mNH.advertise<std_msgs::String>("/infoLog", 1, true);
   driveControlPublish = mNH.advertise<geometry_msgs::Twist>((publishedName + "/driveControl"), 10);
   heartbeatPublisher = mNH.advertise<std_msgs::String>((publishedName + "/behaviour/heartbeat"), 1, true);
+  manualWaypointPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints/cmd"), 10, true);
   waypointFeedbackPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints"), 1, true);
 
-   startOrderSub = mNH.subscribe("startOrder", 1000, &startOrderHandler);			//startOrder
-   sortOrderSub = mNH.subscribe("sortOrder", 1000, &sortOrderHandler);				//sortOrder
+  //publishers
+  status_publisher = mNH.advertise<std_msgs::String>((publishedName + "/status"), 1, true);				//publishes rover status
+  stateMachinePublish = mNH.advertise<std_msgs::String>((publishedName + "/state_machine"), 1, true);			//publishes state machine status
+  fingerAnglePublish = mNH.advertise<std_msgs::Float32>((publishedName + "/fingerAngle/cmd"), 1, true);			//publishes gripper angle to move gripper finger
+  wristAnglePublish = mNH.advertise<std_msgs::Float32>((publishedName + "/wristAngle/cmd"), 1, true);			//publishes wrist angle to move wrist
+  infoLogPublisher = mNH.advertise<std_msgs::String>("/infoLog", 1, true);						//publishes a message to the infolog box on GUI
+  driveControlPublish = mNH.advertise<geometry_msgs::Twist>((publishedName + "/driveControl"), 10);			//publishes motor commands to the motors
+  heartbeatPublisher = mNH.advertise<std_msgs::String>((publishedName + "/behaviour/heartbeat"), 1, true);		//publishes ROSAdapters status via its "heartbeat"
+  waypointFeedbackPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints"), 1, true);		//publishes a waypoint to travel to if the rover is given a waypoint in manual mode
 
+  //timers
   publish_status_timer = mNH.createTimer(ros::Duration(status_publish_interval), publishStatusTimerEventHandler);
   stateMachineTimer = mNH.createTimer(ros::Duration(behaviourLoopTimeStep), behaviourStateMachine);
 
@@ -338,12 +392,6 @@ int main(int argc, char **argv) {
 
   timerStartTime = time(0);
 
-
-ss << "IP Address running"<< ip<< "Identity";
-        msg.data = ss.str();
-        infoLogPublisher.publish(msg);
-
-
   ros::spin();
 
   return EXIT_SUCCESS;
@@ -360,13 +408,48 @@ void behaviourStateMachine(const ros::TimerEvent&)
 if (timerTimeElapsed > 31)
 {
     CNMFirstBoot();               //StartOrder
-
 }
 
 if (timerTimeElapsed > 33)
 {
     sortOrder();
 }
+
+//TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role &
+// the time that they were working
+if(timerTimeElapsed > 45 && roleReady)
+{
+  roleReady = false;
+  assignSwarmieRoles(timerTimeElapsed);
+}
+
+//TODO: AJH this is just for testing! I would never in good conscience hard code
+//a comparison to a published name. That would be silly.
+if(timerTimeElapsed > 53 && publishedName == "ajax" && firstUpdate)
+{
+  firstUpdate = false;
+  testStuff();
+}
+//TODO: testing initial comms, comment this back in when done
+/*
+//at ~5 minutes, update our roles
+if((4 < (timerTimeElapsed/60) <= 5) && firstUpdate){
+  firstUpdate = false;
+  updateBehavior(timerTimeElapsed);
+}
+
+//at ~10 minutes, update our roles
+if((9 < (timerTimeElapsed/60) <= 10) && secondUpdate){
+  secondUpdate = false;
+  updateBehavior(timerTimeElapsed);
+}
+
+//at ~15 minutes, update our roles
+if((14 < (timerTimeElapsed/60) <= 15) && thirdUpdate){
+  thirdUpdate = false;
+  updateBehavior(timerTimeElapsed);
+}
+*/
 
 /*if (sortTrigger1 == false)
 {
@@ -387,14 +470,22 @@ if (timerTimeElapsed > 33)
   // auto mode but wont work in main goes here)
   if (!initilized)
   {
+    int i = centerIndex;
+    //try averaging our gps location here:
+    if( i < ASIZE)
+    {
+      CenterXCoordinates[centerIndex] = currentLocationMap.x;
+      CenterYCoordinates[centerIndex] = currentLocationMap.y;
 
+      //stringstream ss;
+      //ss << "reading position X: " <<   centerLocationMap.x << " Y: " << centerLocationMap.y << "  i: " << i << endl;
+      //msg.data = ss.str();
+      //infoLogPublisher.publish(msg);
+      centerIndex++;
+    }
     if (timerTimeElapsed > startDelayInSeconds)
     {
 
-
-
-      //Create a new location object for CNMAVGCenter
-    //  geometry_msgs::Pose2D location;
 
       // initialization has run
       initilized = true;
@@ -411,12 +502,30 @@ if (timerTimeElapsed > 33)
       centerMap.theta = centerLocationMap.theta;
       logicController.SetCenterLocationMap(centerMap);
 
-      Point cnmCenterMap;
-      //cnmCenterMap = currentLocationMap;
+      /*Point cnmCenterMap;
       cnmCenterMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
       cnmCenterMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
       cnmCenterMap.theta = centerLocationMap.theta;
-      CNMAVGCenter(cnmCenterMap);
+      */
+
+      /*for(int i = 0; i < ASIZE; i++)
+	    {
+		  //flood x and y coordinates
+      //problem: these are all the same point, because they're being read really, reeeaaally quickly
+	        CenterXCoordinates[i] = currentLocationMap.x;
+    	    CenterYCoordinates[i] = currentLocationMap.y;
+
+          myFile << " x:"<< currentLocationMap.x << " y:" << currentLocationMap.y << " index:" << i;
+
+          stringstream ss;
+          ss << "reading position X: " <<   currentLocationMap.x << " Y: " << currentLocationMap.y << "  i: " << i << endl;
+          msg.data = ss.str();
+          infoLogPublisher.publish(msg);
+	    }
+      CNMProjectCenter();
+      */
+      centerIndex = 0;
+      CNMProjectCenter();
 
       centerLocationMap.x = centerMap.x;
       centerLocationMap.y = centerMap.y;
@@ -434,22 +543,22 @@ if (timerTimeElapsed > 33)
 
   }
 
-  // Robot is in automode
+  // Robot is in autonomous mode
   if (currentMode == 2 || currentMode == 3)
   {
 
     humanTime();
 
-    //update the time used by all the controllers
+    //update the time used by all the controllers, logic controller will send to other controllers
     logicController.SetCurrentTimeInMilliSecs( getROSTimeInMilliSecs() );
 
-    //update center location
+    //update center location, logic controller will send to other controllers
     logicController.SetCenterLocationOdom( updateCenterLocation() );
 
     //ask logic controller for the next set of actuator commands
     result = logicController.DoWork();
 
-    bool wait = false;
+    bool wait = false;	//a variable created to check if we are in a waiting state
 
     //if a wait behaviour is thrown sit and do nothing untill logicController is ready
     if (result.type == behavior)
@@ -476,28 +585,28 @@ if (timerTimeElapsed > 33)
     else
     {
 
-      sendDriveCommand(result.pd.left,result.pd.right);
+      sendDriveCommand(result.pd.left,result.pd.right);	//uses the results struct with data sent back from logic controller to send motor commands
 
 
       //Alter finger and wrist angle is told to reset with last stored value if currently has -1 value
       std_msgs::Float32 angle;
       if (result.fingerAngle != -1)
       {
-        angle.data = result.fingerAngle;
-        fingerAnglePublish.publish(angle);
-        prevFinger = result.fingerAngle;
+        angle.data = result.fingerAngle;	//uses results struct with data sent back from logic controller to get angle data
+        fingerAnglePublish.publish(angle);	//publish angle data to the gripper fingers
+        prevFinger = result.fingerAngle;	//store the last known gripper finger angle
       }
 
       if (result.wristAngle != -1)
       {
-        angle.data = result.wristAngle;
-        wristAnglePublish.publish(angle);
-        prevWrist = result.wristAngle;
+        angle.data = result.wristAngle;		//uses results struct with data sent back from logic controller to get angle data
+        wristAnglePublish.publish(angle);	//publish angle data to the gripper wrist
+        prevWrist = result.wristAngle;		//store the last known gripper wrist angle
       }
     }
 
     //publishHandeling here
-    //logicController.getPublishData(); suggested
+    //logicController.getPublishData(); //Not Currently Implemented, used to get data from logic controller and publish to the appropriate ROS Topic; Suggested
 
 
     //adds a blank space between sets of debugging data to easily tell one tick from the next
@@ -506,7 +615,7 @@ if (timerTimeElapsed > 33)
   }
 
   // mode is NOT auto
-  else
+  else	//manual mode
   {
     humanTime();
 
@@ -515,7 +624,7 @@ if (timerTimeElapsed > 33)
     // publish current state for the operator to see
     stateMachineMsg.data = "WAITING";
 
-    // poll the logicController to get the waypoints that have been
+    // ask the logicController to get the waypoints that have been
     // reached.
     std::vector<int> cleared_waypoints = logicController.GetClearedWaypoints();
 
@@ -527,7 +636,7 @@ if (timerTimeElapsed > 33)
       wpt.id = *it;
       waypointFeedbackPublisher.publish(wpt);
     }
-    result = logicController.DoWork();
+    result = logicController.DoWork();	//ask logic controller to run
     if(result.type != behavior || result.b != wait)
     {
       // if the logic controller requested that the robot drive, then
@@ -589,6 +698,8 @@ void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& messag
 							    tagPose.pose.orientation.z,
 							    tagPose.pose.orientation.w ) );
       tags.push_back(loc);
+
+
     }
 
     logicController.SetAprilTags(tags);
@@ -613,7 +724,7 @@ void sonarHandler(const sensor_msgs::Range::ConstPtr& sonarLeft, const sensor_ms
 
 }
 
-void odometryHandler(const nav_msgs::Odometry::ConstPtr& message) {
+void odometryHandler(const nav_msgs::Odometry::ConstPtr& message){
   //Get (x,y) location directly from pose
   currentLocation.x = message->pose.pose.position.x;
   currentLocation.y = message->pose.pose.position.y;
@@ -702,20 +813,20 @@ void mapHandler(const nav_msgs::Odometry::ConstPtr& message) {
   Point curr_loc;
   curr_loc.x = currentLocationMap.x;
   curr_loc.y = currentLocationMap.y;
-  curr_loc.theta = currentLocationMap.theta;
+  curr_loc.theta = currentLocation.theta; // was currentLocationMap
   logicController.SetMapPositionData(curr_loc);
   logicController.SetMapVelocityData(linearVelocity, angularVelocity);
 }
 
 void joyCmdHandler(const sensor_msgs::Joy::ConstPtr& message) {
   const int max_motor_cmd = 255;
-  if (currentMode == 0 || currentMode == 1) {
+  if (currentMode == 0 || currentMode == 1) {	//takes data coming from joystick and stores into linear and angular variables
     float linear  = abs(message->axes[4]) >= 0.1 ? message->axes[4]*max_motor_cmd : 0.0;
     float angular = abs(message->axes[3]) >= 0.1 ? message->axes[3]*max_motor_cmd : 0.0;
 
     float left = linear - angular;
     float right = linear + angular;
-
+    //check to see if commands exceed MAX values, and if so set them to hard coded MAX value
     if(left > max_motor_cmd) {
       left = max_motor_cmd;
     }
@@ -737,19 +848,30 @@ void joyCmdHandler(const sensor_msgs::Joy::ConstPtr& message) {
 
 void publishStatusTimerEventHandler(const ros::TimerEvent&) {
   std_msgs::String msg;
-  msg.data = "online";
+  msg.data = "¡CNM!";
   status_publisher.publish(msg);
 }
 
 void manualWaypointHandler(const swarmie_msgs::Waypoint& message) {
   Point wp;
-  wp.x = message.x;
-  wp.y = message.y;
+  wp.x = message.x;//message.x;
+  wp.y = message.y;//message.y;
   wp.theta = 0.0;
+  std_msgs::String temp_msg;
   switch(message.action) {
   case swarmie_msgs::Waypoint::ACTION_ADD:
     logicController.AddManualWaypoint(wp, message.id);
+    //temp_msg.data = "Entering manual mode to reach waypoint ";
+    //infoLogPublisher.publish(temp_msg);
+    //AJH: if we add a manual waypoint, we switch to manual mode
+    //logicController.SetModeManual();
     break;
+  //case swarmie_msgs::Waypoint::ACTION_REACHED:
+    //AJH: if we have reached our waypoint, we switch to auto mode
+    //temp_msg.data = "Entering auto mode after reaching waypoint";
+    //infoLogPublisher.publish(temp_msg);
+    //logicController.SetModeAuto();
+    //break;
   case swarmie_msgs::Waypoint::ACTION_REMOVE:
     logicController.RemoveManualWaypoint(message.id);
     break;
@@ -811,7 +933,7 @@ void transformMapCentertoOdom()
     tfListener->transformPose(publishedName + "/odom", mapPose, odomPose);
   }
 
-  catch(tf::TransformException& ex) {
+  catch(tf::TransformException& ex) {  //bad transform
     ROS_INFO("Received an exception trying to transform a point from \"map\" to \"odom\": %s", ex.what());
     x = "Exception thrown " + (string)ex.what();
     std_msgs::String msg;
@@ -828,15 +950,15 @@ void transformMapCentertoOdom()
 
  // cout << "x ref : "<< centerLocationMapRef.x << " y ref : " << centerLocationMapRef.y << endl;
 
-  float xdiff = centerLocationMapRef.x - centerLocationOdom.x;
-  float ydiff = centerLocationMapRef.y - centerLocationOdom.y;
+  float xdiff = centerLocationMapRef.x - centerLocationOdom.x;	//get difference in X values
+  float ydiff = centerLocationMapRef.y - centerLocationOdom.y;	//get difference in Y values
 
-  float diff = hypot(xdiff, ydiff);
+  float diff = hypot(xdiff, ydiff);	//get total difference
 
-  if (diff > drift_tolerance)
+  if (diff > drift_tolerance)	//If the difference is greater than tolerance, adjust the rovers perceived idea of where the center is. Used to decrease ODOM drift and keep rover accuracy for longer periods of time
   {
-    centerLocationOdom.x += xdiff/diff;
-    centerLocationOdom.y += ydiff/diff;
+    centerLocationOdom.x += xdiff/diff;	//adjust X
+    centerLocationOdom.y += ydiff/diff;	//adjust Y
   }
 
   //cout << "center x diff : " << centerLocationMapRef.x - centerLocationOdom.x << " center y diff : " << centerLocationMapRef.y - centerLocationOdom.y << endl;
@@ -868,64 +990,33 @@ void humanTime() {
   //cout << "System has been Running for :: " << hoursTime << " : hours " << minutesTime << " : minutes " << timeDiff << "." << frac << " : seconds" << endl; //you can remove or comment this out it just gives indication something is happening to the log file
 }
 
-
 void startOrderHandler(const std_msgs::String& msg)		//startOrder
 {
-    if(testCount == false)
-    {
-	cnmStartOrder++;
-    }
 
-   if(cnmStartOrder == 1)
-   {
-       std_msgs::String msg;
-        msg.data = "count is 1";
-        infoLogPublisher.publish(msg);
-   }
-   if(cnmStartOrder == 2)
-   {
-     std_msgs::String msg;
-        msg.data = "count is 2";
-        infoLogPublisher.publish(msg);
-   }
-   if(cnmStartOrder == 3)
-   {
-     std_msgs::String msg;
-        msg.data = "count is 3";
-        infoLogPublisher.publish(msg);
-   }
-   if(cnmStartOrder == 4)
-   {
-     std_msgs::String msg;
-        msg.data = "count is 4";
-        infoLogPublisher.publish(msg);
-   }
-   if(cnmStartOrder == 5)
-   {
-     std_msgs::String msg;
-        msg.data = "count is 5";
-        infoLogPublisher.publish(msg);
-   }
-   if(cnmStartOrder == 6)
-   {
-     std_msgs::String msg;
-        msg.data = "count is 6";
-        infoLogPublisher.publish(msg);
-   }
+  string msg_name = msg.data;
+  swarmieNames.push_back(msg.data);
+  if(msg_name == publishedName){
+    Msg.data = string("That's my published name! I am " + publishedName);
+    //infoLogPublisher.publish(Msg);
+  }
+  else{
+    Msg.data = string("Boo, that's not my published name! I'm not " + msg_name + ", I'm " + publishedName);
+    //infoLogPublisher.publish(Msg);
+  }
+
 }
 
 void CNMFirstBoot()
 {
     //FIRST TIME IN THIS FUNCTION
-
     if(testCount)		//startOrder
     {
-        testCount = false;
+      testCount = false;
       /*  std_msgs::String msg;
         msg.data = "first boot running ";
-        infoLogPublisher.publish(msg);*/
-
-	startOrderPub.publish(msg);
+          infoLogPublisher.publish(msg);*/
+      startMsg.data = (publishedName);
+	    startOrderPub.publish(startMsg);
     }
 }
 
@@ -934,86 +1025,223 @@ void sortOrder()
   if(sortTrigger)
   {
     sortTrigger = false;
-    std::string str(ip);
-    msg.data = ip;
+    //std::string str(ip);
+    stringstream name_ss;
+    for(int i = 0; i < swarmieNames.size(); i++)
+    {
+      if(i != 0){name_ss << ",";}
+      name_ss << swarmieNames.at(i);
+    }
+    string allNames = name_ss.str();
+    msg.data = allNames;
+    //msg.data = ip;
+    //infoLogPublisher.publish(msg);
     sortOrderPub.publish(msg);
-   //     msg.data = "sortTrigger is running ";
-   //     infoLogPublisher.publish(msg);
+    //msg.data = "sortTrigger is running ";
+    //infoLogPublisher.publish(msg);
   }
 }
 
 void sortOrderHandler(const std_msgs::String& msg)
 {
- stringstream ff;
- ff << "MY ID is: "<< cnmStartOrder << "  ID received: " << msg;
-        Msg.data = ff.str();
-        infoLogPublisher.publish(Msg);
-  // sortTrigger1 = false;
+
+//TODO: is this the handler that receives the initial start message?
+   //if so, what the hell is our initial start message?
+
+   //Hijacking this event handler for my own nefarious purposes
+   //in theory, we only get one message from each swarmie on boot up
+   //and in this case, that should just be our all the hostnames we have received thus far
+   //so for this event handler, we just want to compare the received list of hostnames & see if it is
+   //larger than our list. if it is, copy the received list and discard ours.
+   //after that, we'll sort the list so we have an ordered list of swarmies
+
+  //splitting our message stream:
+  string allNames = msg.data;
+  vector<string> results;
+
+  stringstream ss(allNames);
+  string item;
+  char delim = ',';
+  while (getline(ss, item, delim)) {
+      results.push_back(item);
+  }
+
+  /*
+  string buf; // Have a buffer string
+  stringstream ss(allNames); // Insert the string into a stream
+
+  while (ss >> buf)
+  {
+    results.push_back(buf);
+  }
+  */
+
+   //std_msgs::String msgList;
+   //stringstream ffs;
+   //ffs << publishedName <<"'s list has " << swarmieNames.size() << " elements, rcv'd list has " << results.size();
+
+   if(results.size() >= swarmieNames.size()){
+     swarmieNames = results;
+   }
+   //msgList.data = ffs.str();
+   //infoLogPublisher.publish(msgList);
+
+   //AJH this might be breaking the whole damn thing eta: egads, I was right!!!
+   //but only because I don't know the difference between i & j
+   //this will sort our list every time we add a name, so for now it's okay,
+   //but it will not work in the case that a swarmie enters the arena part-way
+   //thru the competition
+   for(int i = 0; i < swarmieNames.size(); i++){
+      //this loops through the entire list i times, which I think is
+      //sufficient to sort the whole thing?
+      //should be i^2 comparisons,
+      //but maybe double check the math at some point? questions? ...bueller?
+      for(int j = 0; j < swarmieNames.size()-1; j++){
+      //if swarmieNames[j] is 'bigger' than swarmieNames[j+1], switch
+        if(swarmieNames.at(j) > swarmieNames.at(j+1)){
+          string temp = swarmieNames.at(j);
+          swarmieNames.at(j) = swarmieNames.at(j+1);
+          swarmieNames.at(j+1) = temp;
+       }
+     }
+   }
+
 }
 
-void CNMAVGCenter(Point newCenter)
-{
+//store up to 30 fence locations
+RangeController myFences[30];
 
-    //NOTES ON THIS FUNCTION:
-    //- Takes a derived center point, puts it in an array of other
-    //  center points and averages them together... allowing us to
-    //  build a more dynamic center location (able to adjust with drift)
+void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
+  stringstream rcvd;
 
-    std_msgs::String msg;
-    msg.data = "Averaging Center GPS Location";
-    infoLogPublisher.publish(msg);
+  msg.data = rcvd.str();
+  infoLogPublisher.publish(msg);
+  //AJH: do stuff
+  int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type
 
-    const int ASIZE = 20; //was 10 for 2017
-    static int index = 0;
+  if (msg_type == swarmie_msgs::Waypoint::ACTION_REACHED)
+  {
+    logicController.setVirtualFenceOff();
+  }
+  else
+  {
+    // Elements 2 and 3 are the x and y coordinates of the range center
+    Point center;
+    //center.x = my_msg.data[1]; // Range center x
+    //center.y = my_msg.data[2]; // Range center y
 
-    static bool reached10 = false;
-
-    if(purgeMap)
+    // If the shape type is "circle" then element 4 is the radius, if rectangle then width
+    switch ( my_msg.action )
     {
-	purgeMap = false;
-	reached10 = false;
+      case swarmie_msgs::Waypoint::ACTION_ADD: //resource message
+      {
+        float radius = 1.5;
+        //TODO: AJH for now, just see if we can effectively pull usable info out of these messages
+        rcvd << "rcv'd resource msg points: (" << my_msg.x << ", " << my_msg.y << ")";
+        msg.data = rcvd.str();
+        infoLogPublisher.publish(msg);
+        //logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
+        //logicController.setInterconnectedCOntroller thing here
+        break;
+      }
+      case swarmie_msgs::Waypoint::ACTION_REMOVE: //obstacle message
+      {
+        //build inside-out fence around obstacle
+        //logicController.setVirtualFenceOn( new RangeCircle(center, radius) );
+        //logicController.setInterconnectedCOntroller thing here
+        //KAILY:
+        //check our obstacle gridpoints:
+        rcvd << "rcv'd obstacle msg points: (" << my_msg.x << ", " << my_msg.y << ")";
+        msg.data = rcvd.str();
+        infoLogPublisher.publish(msg);
+        /*float gridPoints[2][3] = {{1.000, 1.250, 1.500}, {1.000, 1.250, 1.500}};
+        int size = *(&gridPoints + 1) - gridPoints;
+        for(int i=0; i < size; i++) {
+          int nSize = *(&gridPoints[i] + 1) - gridPoints[i];
+          for(int j=0; j < nSize; j++) {
+            //do stuff with Range...
+          }
+        }
+         */
+        //point obstacleLocation = currentLocation + 0.8; // or however you send 0.8 directly in front of your currentLocation
+        Point obstacleLoc;
+        obstacleLoc.x = center.x;
+        obstacleLoc.y = center.y;
+        //logicController.setVirtualFenceOn( new RangeCircle(obstacleLoc, 0.5));
+        //RangeController::RangeCircle(obstacleLoc, 0.5);
+        break;
+      }
+      default:
+      { // Unknown msg type specified
+        throw ROSAdapterRangeShapeInvalidTypeException("Unknown Shape type in ROSAdapter.cpp:virtualFenceHandler()");
+        //throw new Exception("Unknown message type in ROSAdapter.cpp:myMessageHandler()");
+      }
+  }
 
-	index = 0;
+  }
+}
+
+void CNMProjectCenter()
+{
+    //NOTES ON THIS FUNCTION:
+    //- Takes current point and projects it out to where the center SHOULD be
+    //- Calls CNMAVGCenter to avg new center location searchController new avg center
+
+    if(resetMap)
+    {
+	    resetMap = false;
+	    maxedCenterArray = false;
+	    centerIndex = 0;
     }
 
-    CenterXCoordinates[index] = newCenter.x;
-    CenterYCoordinates[index] = newCenter.y;
+    //NORMALIZE ANGLEf
+    double normCurrentAngle = angles::normalize_angle_positive(currentLocationMap.theta);
 
-    if(index >= ASIZE)
+    //CenterXCoordinates[centerIndex] = currentLocation.x + (CENTEROFFSET * (cos(normCurrentAngle)));
+    CenterXCoordinates[centerIndex] = currentLocationMap.x;
+    //CenterYCoordinates[centerIndex] = currentLocation.y + (CENTEROFFSET * (sin(normCurrentAngle)));
+    CenterYCoordinates[centerIndex] = currentLocationMap.y;
+
+    CNMAVGCenter();
+}
+
+
+void CNMAVGCenter()
+{
+
+  if(resetMap)
+  {
+    resetMap = false;
+    maxedCenterArray = false;
+    centerIndex = 0;
+  }
+
+
+    std_msgs::String msg;
+    msg.data = "Averaging Center Location";
+    infoLogPublisher.publish(msg);
+
+    if(centerIndex >= ASIZE)
     {
-        if(!reached10) { reached10 = true; }
-        index = 0;
+        if(!maxedCenterArray) {  maxedCenterArray = true; }
+        centerIndex = 0;
     }
     else
     {
-        index++;
+        centerIndex++;
     }
 
     float avgX = 0;
     float avgY = 0;
 
-    if(!reached10)
+    for(int i = 0; i < ASIZE; i++)
     {
-        for(int i = 0; i < index; i++)
-        {
-            avgX += CenterXCoordinates[i];
-            avgY += CenterYCoordinates[i];
-        }
-
-        avgX = (avgX / index);
-        avgY = (avgY / index);
+       avgX += CenterXCoordinates[i];
+       avgY += CenterYCoordinates[i];
     }
-    else
-    {
-        for(int i = 0; i < ASIZE; i++)
-        {
-            avgX += CenterXCoordinates[i];
-            avgY += CenterYCoordinates[i];
-        }
 
         avgX = (avgX / ASIZE);
         avgY = (avgY / ASIZE);
-    }
 
     //UPDATE CENTER LOCATION
     //---------------------------------------------
@@ -1021,14 +1249,233 @@ void CNMAVGCenter(Point newCenter)
     cnmCenterLocation.y = (avgY);
     logicController.cnmSetCenterLocationMAP(cnmCenterLocation);
 
-
-    msg.data = "Averaging Center GPS Location Complete!";
+    stringstream ss;
+    ss << "Center Position X: " <<   cnmCenterLocation.x << " Y: " << cnmCenterLocation.y << "  Index: " << centerIndex << endl;
+    msg.data = ss.str();
     infoLogPublisher.publish(msg);
 
-    stringstream ff;
-    ff << "Center Postion is X: "<< cnmCenterLocation.x << "  Y: " << cnmCenterLocation.y;
+    //AJH now that we have our initial start stuff done,
+    //we are ready to start moving
+    //isReady = true;
+
+}
+
+void CNMCurrentLocationAVG()
+{
+
+  static int index = 0;
+
+  std_msgs::String msg;
+  msg.data = "Averaging Current Location";
+  infoLogPublisher.publish(msg);
+
+
+
+    if(index < CASIZE)
+    {
+
+	     avgCurrentCoordsX[index] = currentLocationMap.x;
+    	 avgCurrentCoordsY[index] = currentLocationMap.y;
+
+	     index++;
+
+	     //return false;
+    }
+
+    else
+    {
+	      float x = 0, y = 0;
+	      for(int i = 0; i < CASIZE; i++)
+	      {
+	        x += avgCurrentCoordsX[i];
+	        y += avgCurrentCoordsY[i];
+	      }
+
+	    x = x/CASIZE;
+	    y = y/CASIZE;
+
+      Point cnmAVGCurrentLocation;
+	    cnmAVGCurrentLocation.x = x;
+	    cnmAVGCurrentLocation.y = y;
+      cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+      logicController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+
+      stringstream ff;
+      ff << "Current Postion Average is X: "<< cnmAVGCurrentLocation.x << "  Y: " << cnmAVGCurrentLocation.y << "  Theta: " << currentLocation.theta << endl;
            Msg.data = ff.str();
            infoLogPublisher.publish(Msg);
 
 
+	    index = 0;
+	    //return true;
+    }
+
+}
+
+void assignSwarmieRoles(int currentTime){
+
+    //vector<string> swarmieNames = names;
+    int numSwarmies = swarmieNames.size();
+    //comms = array<ros::Publisher,numSwarmies>;
+    //build one publisher per swarmie
+    for(int i = 0; i < numSwarmies; i++){
+      string& name = swarmieNames.at(i);
+      //cnm_NH points to mNH, so we dereference it here to build our comms publishers
+      namedSwarmiePub = cnm_NH->advertise<swarmie_msgs::Waypoint>(("dear" + name), 100, true);
+      //std_msgs::String test;
+      //test.data = ("test from " + publishedName + " in assign roles");
+      //namedSwarmiePub.publish(test);
+      comms.push_back(namedSwarmiePub);
+      msg.data = ("I created a publisher for " + name);
+      if(name == publishedName)
+      {
+        myID = i;
+        stringstream temp;
+        temp << "That's me! I created a publisher to myself. My ID is " << myID << "!";
+        msg.data = temp.str();
+      }
+      infoLogPublisher.publish(msg);
+    }
+
+    //method variables
+    //int numSwarmies = comms.size(); // set once @ 1min; unchanged after
+    myStartTime = currentTime;
+
+    //fire initial behavior starts now
+    //assign my role based on myID and swarmie team size:
+    switch(myID){//myRole){
+      //if gather, set initial fence area around home & begin searching/waiting for input there
+      //gatherers should be on call for the searchers (if they find a resource, etc.)
+      case 0://gather1:
+        myRole = Role::gather1;
+        msg.data = ("I am a gatherer!"); //My role is: " + myRole.toString());
+        infoLogPublisher.publish(msg);
+        break;
+      //searchers should get their initial grid areas, which are calculated based on team size and
+      //divided based on location
+      //see map on slack
+      case 1://searcher1:
+        myRole = Role::searcher1;
+        msg.data = ("I am a searcher! (searcher1)");
+        infoLogPublisher.publish(msg);
+        //build fence grids & assign subsets of grid:
+        // for the grid fence
+        if(numSwarmies > 4){
+          //build set of appropriately size fences:
+          Point gridPoint;
+          gridPoint.x = 0.0;
+          gridPoint.y = 0.0;
+          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 22/7, 22/7);
+          //RangeRectangle::RangeRectangle(GRID POINT, 22/7, 22/7);
+        }
+        else{
+          //build set of appropriately size fences:
+          //RangeRectangle::RangeRectangle(GRID POINT, 3, 3);
+          Point gridPoint;
+          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 3, 3);
+        }
+        break;
+      case 2://searcher2:
+        myRole = Role::searcher2;
+        msg.data = ("I am a searcher! (searcher2)");
+        infoLogPublisher.publish(msg);
+        //build fence grids & assign subsets of grid:
+        // for the grid fence
+        if(numSwarmies > 4){
+          //build set of appropriately size fences:
+          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 22/7, 22/7);
+          //RangeRectangle::RangeRectangle(GRID POINT, 22/7, 22/7);
+        }
+        else{
+          //build set of appropriately size fences:
+          //RangeRectangle::RangeRectangle(GRID POINT, 3, 3);
+          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 3, 3);
+        }
+        break;
+      case 4://searcher3:
+        myRole = Role::searcher3;
+        msg.data = ("I am a searcher! (searcher3)");
+        infoLogPublisher.publish(msg);
+        //build fence grids & assign subsets of grid:
+        // for the grid fence
+        if(numSwarmies > 4){
+          //build set of appropriately size fences:
+          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 22/7, 22/7);
+          //RangeRectangle::RangeRectangle(GRID POINT, 22/7, 22/7);
+        }
+        else{
+          //build set of appropriately size fences:
+          //RangeRectangle::RangeRectangle(GRID POINT, 3, 3);
+          //RangeRectangle rectFence = new RangeRectangle(gridPoint, 3, 3);
+        }
+        break;
+      //hybrids will search areas and be on call for other swarmies' resource calls.
+      //they search a smaller subset of areas than regular searchers receive
+      case 3://hybrid1:
+        myRole = Role::hybrid1;
+        msg.data = ("I am a hybrid! (hybrid1)");
+        infoLogPublisher.publish(msg);
+        break;
+      case 5://hybrid2:
+        myRole = Role::hybrid2;
+        msg.data = ("I am a hybrid! (hybrid2)");
+        infoLogPublisher.publish(msg);
+        break;
+      default:
+        msg.data = ("I don't recognize that role, sorry!");
+        infoLogPublisher.publish(msg);
+        //swarmie > 6 defaults to search?
+        break;
+    }
+    return;
+}
+
+void updateBehavior(int currentTime){
+    //update behavior roles for searchers and hybrids,
+    //update gatherer behavior as necessary (if timer > 15 minutes-startTime)
+    //AJH TODO: timer needs to be in seconds, because that is what we are passing it
+    msg.data = ("Updating role - the current time is: " + currentTime);
+    infoLogPublisher.publish(msg);
+    switch(myRole){
+      //if gather, set initial fence area around home & begin searching/waiting for input there
+      //gatherers should be on call for the searchers (if they find a resource, etc.)
+      case Role::gather1:
+        break;
+      //searchers should get their initial grid areas, which are calculated based on team size and
+      //divided based on location
+      //see map on slack
+      case Role::searcher1:
+      case Role::searcher2:
+      case Role::searcher3:
+        break;
+      //hybrids will search areas and be on call for other swarmies' resource calls.
+      //they search a smaller subset of areas than regular searchers receive
+      case Role::hybrid1:
+      case Role::hybrid2:
+        break;
+      default:
+        //swarmie > 6 defaults to search?
+        break;
+    }
+
+    return;
+}
+
+void testStuff(){
+  //std_msgs::Float32MultiArray temp_msg;
+  int type = 1;
+  float x = 73.000;
+  float y = 91.00;
+  my_msg.action = type;
+  my_msg.x = x;
+  my_msg.y = y;
+  for(int i = 0; i < comms.size(); i++){
+    //ros::Publisher& pub = comms.at(i);
+    //pub.publish(my_msg);
+    comms.at(i).publish(my_msg);
+    //msg.data = "testing publishers...";
+    //infoLogPublisher.publish(msg);
+  }
 }

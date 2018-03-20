@@ -2,6 +2,7 @@
 #define DROPOFCONTROLLER_H
 #define HEADERFILE_H
 
+
 #include "Controller.h"
 #include "Tag.h"
 #include <math.h>
@@ -32,6 +33,30 @@ public:
   void SetCurrentTimeInMilliSecs( long int time );
 
   void cnmSetCenterLocation(Point center);
+  bool CNMCurrentLocationAVG();
+
+  void cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation);
+
+
+
+  bool CNMCentered;
+  bool cnmCenteringNow;
+  bool finalAdjustmentBeforeDrop;
+
+  bool readyToDrop = false;
+  double cTagcount = 0;
+  bool cnmReverse = false;
+  bool isDroppingOff = false;
+  bool backUp = false;
+  bool firstReverse = true;
+  bool centerSeen = false;
+
+  bool dropTimerStatered = false;
+  bool reverseTimerStatered = false;
+  bool cnmDropoff180 = false;
+  bool cnm180Finished = true;
+  bool the180TimerStatered = false;
+
 
 private:
 
@@ -48,7 +73,11 @@ private:
   const float spinSizeIncrement = 0.50; //in meters
   const float searchVelocity = 0.15; //in meters per second
   const float dropDelay = 0.5; //delay in seconds for dropOff
-
+  float cnmDropoffTimer = 2.8; //delay in seconds for dropOff
+  float cnmReverseTimer = 5.0; //delay in seconds for Reverse
+  float cnm180Timer = 3.0;
+  float cnmDropoffTimerElapsed = 0; //elapsed time for dropoff timer
+  float cnmReverseTimerElapsed = 0;
 
 
   //Instance Variables
@@ -65,6 +94,13 @@ private:
 
   //Time since last exceeding the tag threshold
   long int lastCenterTagThresholdTime;
+  //Timer for dropoff code (dropping the cube in the center)- used for timerTimeElapsed
+long int cnmDropoffTimerStart;
+
+//Timer for reversing out of home code (dropping the cube in the center)- used for timerTimeElapsed
+long int cnmReverseTimerStart;
+
+long int cnm180TimerStart;
 
   //Previous tag count
   int prevCount;
@@ -81,7 +117,10 @@ private:
   //Center and current locations as of the last call to setLocationData
   Point centerLocation;
   Point currentLocation;
+  //Averaged GPS center location
   Point cnmCenterLocation;
+  //Averaged GPS current location
+  Point cnmCurrentLocation;
 
   //Time since modeTimer was started, in seconds
   float timerTimeElapsed;
@@ -115,6 +154,8 @@ private:
   bool startWaypoint;
 
   Result result;
+
+
 
   long int current_time;
 

@@ -201,7 +201,7 @@ Result PickUpController::DoWork()
   if (!targetHeld)
   {
     //threshold distance to be from the target block before attempting pickup
-    float targetDistance = 0.14; //meters //ORIGINALLY .15 // .14 value from CNM 2017
+    float targetDistance = 0.15; //meters //ORIGINALLY .15 // .14 value from CNM 2017
 
     // -----------------------------------------------------------
     // millisecond time = current time if not in a counting state
@@ -240,11 +240,11 @@ Result PickUpController::DoWork()
     // If we don't see any blocks or cubes turn towards the location of the last cube we saw.
     // I.E., try to re-aquire the last cube we saw.
 
-    float grasp_time_begin = 1.2; //meters //ORIGINALLY 1.5 // 1.2 value from CNM 2017
-    float raise_time_begin = 1.5; //meters //ORIGINALLY 2.0 // 1.5 value from CNM 2017
-    float lower_gripper_time_begin = 2.6; //meters //ORIGINALLY 4.0
-    float target_reaquire_begin= 2.5; //meters //ORIGINALLY 4.2 // 2.5 value from CNM 2017
-    float target_pickup_task_time_limit = 5.0; //meters //ORIGINALLY 4.8 // 5.0 value from CNM 2017
+    float grasp_time_begin = 1.5; //meters //ORIGINALLY 1.5 // 1.2 value from CNM 2017
+    float raise_time_begin = 2.0; //meters //ORIGINALLY 2.0 // 1.5 value from CNM 2017
+    float lower_gripper_time_begin = 4.0; //meters //ORIGINALLY 4.0
+    float target_reaquire_begin= 4.2; //meters //ORIGINALLY 4.2 // 2.5 value from CNM 2017
+    float target_pickup_task_time_limit = 4.8; //meters //ORIGINALLY 4.8 // 5.0 value from CNM 2017
 
     //cout << "blockDistance DOWORK:  " << blockDistance << endl;
 

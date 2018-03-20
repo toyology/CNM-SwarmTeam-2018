@@ -1,4 +1,7 @@
+
+
 #include "DriveController.h"
+
 
 DriveController::DriveController() {
 
@@ -28,7 +31,7 @@ void DriveController::Reset()
 
 Result DriveController::DoWork()
 {
-  
+
   ///WARNING waypoint input must use FAST_PID at this point in time failure to set fast pid will result in no movment
 
   if(result.type == behavior)
@@ -77,145 +80,161 @@ Result DriveController::DoWork()
     break;
   }
 
+  //getCurrLocAVG();
 
-  case STATE_MACHINE_WAYPOINTS:
+  /*
+  static bool averaged = false;
+  averaged = DriveController::CNMCurrentLocationAVG();
+
+  if(averaged){
+  cout << "AVERAGED - Averaged Current location complete" << endl;
+  }
+
+  if(averaged)
   {
+*/
 
-    //Handles route planning and navigation as well as making sure all waypoints are valid.
 
-    bool tooClose = true;
-    //while we have waypoints and they are tooClose to drive to
-    while (!waypoints.empty() && tooClose)
+
+case STATE_MACHINE_WAYPOINTS:
+{
+
+  //Handles route planning and navigation as well as making sure all waypoints are valid.
+
+  bool tooClose = true;
+  //while we have waypoints and they are tooClose to drive to
+  while (!waypoints.empty() && tooClose)
+  {
+    //check next waypoint for distance
+    if (hypot(waypoints.back().x-currentLocation.x, waypoints.back().y-currentLocation.y) < waypointTolerance)
     {
-      //check next waypoint for distance
-      if (hypot(waypoints.back().x-currentLocation.x, waypoints.back().y-currentLocation.y) < waypointTolerance)
-      {
-        //if too close remove it
-        waypoints.pop_back();
-      }
-      else
-      {
-        //this waypoint is far enough to be worth driving to
-        tooClose = false;
-      }
-    }
-    
-    //if we are out of waypoints then interupt and return to logic controller
-    if (waypoints.empty())
-    {
-      stateMachineState = STATE_MACHINE_WAITING;
-      result.type = behavior;
-      interupt = true;
-      return result;
+      //if too close remove it
+      waypoints.pop_back();
     }
     else
     {
-      //select setpoint for heading and begin driving to the next waypoint
-      stateMachineState = STATE_MACHINE_ROTATE;
-      waypoints.back().theta = atan2(waypoints.back().y - currentLocation.y, waypoints.back().x - currentLocation.x);
-      result.pd.setPointYaw = waypoints.back().theta;
-
-      //cout << "**************************************************************************" << endl; //DEBUGGING CODE
-      //cout << "Waypoint x : " << waypoints.back().x << " y : " << waypoints.back().y << endl; //DEBUGGING CODE
-      //fall through on purpose
+      //this waypoint is far enough to be worth driving to
+      tooClose = false;
     }
   }
 
-  case STATE_MACHINE_ROTATE:
+  //if we are out of waypoints then interupt and return to logic controller
+  if (waypoints.empty())
   {
-
-    // Calculate angle between currentLocation.theta and waypoints.front().theta
-    // Rotate left or right depending on sign of angle
-    // Stay in this state until angle is minimized
-
-    waypoints.back().theta = atan2(waypoints.back().y - currentLocation.y, waypoints.back().x - currentLocation.x);
-
-    // Calculate the diffrence between current and desired heading in radians.
-    float errorYaw = angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta);
-
-    //cout << "ROTATE Error yaw:  " << errorYaw << " target heading : " << waypoints.back().theta << " current heading : " << currentLocation.theta << endl; //DEBUGGING CODE
-    //cout << "Waypoint x : " << waypoints.back().x << " y : " << waypoints.back().y << " currentLoc x : " << currentLocation.x << " y : " << currentLocation.y << endl; //DEBUGGING CODE
-
-    result.pd.setPointVel = 0.0;
-    //Calculate absolute value of angle
-
-    float abs_error = fabs(angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta));
-
-    // If angle > rotateOnlyAngleTolerance radians rotate but dont drive forward.
-    if (abs_error > rotateOnlyAngleTolerance)
-    {
-      // rotate but dont drive.
-      if (result.PIDMode == FAST_PID)
-      {
-        fastPID(0.0, errorYaw, result.pd.setPointVel, result.pd.setPointYaw);
-      }
-
-      break;
-    }
-    else
-    {
-      //move to differential drive step
-      stateMachineState = STATE_MACHINE_SKID_STEER;
-
-      //fall through on purpose.
-    }
+    stateMachineState = STATE_MACHINE_WAITING;
+    result.type = behavior;
+    interupt = true;
+    return result;
   }
-
-  case STATE_MACHINE_SKID_STEER:
+  else
   {
-      // Calculate angle between currentLocation.x/y and waypoints.back().x/y
-      // Drive forward
-      // Stay in this state until angle is at least PI/2
-
-    // calculate the distance between current and desired heading in radians
+    //select setpoint for heading and begin driving to the next waypoint
+    stateMachineState = STATE_MACHINE_ROTATE;
     waypoints.back().theta = atan2(waypoints.back().y - currentLocation.y, waypoints.back().x - currentLocation.x);
-    float errorYaw = angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta);
-    float distance = hypot(waypoints.back().x - currentLocation.x, waypoints.back().y - currentLocation.y);
+    result.pd.setPointYaw = waypoints.back().theta;
 
-    //cout << "Skid steer, Error yaw:  " << errorYaw << " target heading : " << waypoints.back().theta << " current heading : " << currentLocation.theta << " error distance : " << distance << endl; //DEBUGGING CODE
-    //cout << "Waypoint x : " << waypoints.back().x << " y : " << waypoints.back().y << " currentLoc x : " << currentLocation.x << " y : " << currentLocation.y << endl; //DEBUGGING CODE
+    //cout << "**************************************************************************" << endl; //DEBUGGING CODE
+    //cout << "Waypoint x : " << waypoints.back().x << " y : " << waypoints.back().y << endl; //DEBUGGING CODE
+    //fall through on purpose
+  }
+}
 
+case STATE_MACHINE_ROTATE:
+{
 
+  // Calculate angle between currentLocation.theta and waypoints.front().theta
+  // Rotate left or right depending on sign of angle
+  // Stay in this state until angle is minimized
 
-    // goal not yet reached drive while maintaining proper heading.
-    if (fabs(errorYaw) < M_PI_2 &&  distance > waypointTolerance)
+  waypoints.back().theta = atan2(waypoints.back().y - currentLocation.y, waypoints.back().x - currentLocation.x);
+
+  // Calculate the diffrence between current and desired heading in radians.
+  float errorYaw = angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta);
+
+  //cout << "ROTATE Error yaw:  " << errorYaw << " target heading : " << waypoints.back().theta << " current heading : " << currentLocation.theta << endl; //DEBUGGING CODE
+  //cout << "Waypoint x : " << waypoints.back().x << " y : " << waypoints.back().y << " currentLoc x : " << currentLocation.x << " y : " << currentLocation.y << endl; //DEBUGGING CODE
+
+  result.pd.setPointVel = 0.0;
+  //Calculate absolute value of angle
+
+  float abs_error = fabs(angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta));
+
+  // If angle > rotateOnlyAngleTolerance radians rotate but dont drive forward.
+  if (abs_error > rotateOnlyAngleTolerance)
+  {
+    // rotate but dont drive.
+    if (result.PIDMode == FAST_PID)
     {
-      // drive and turn simultaniously
-      result.pd.setPointVel = searchVelocity;
-      if (result.PIDMode == FAST_PID)
-      {
-        //cout << "linear velocity:  " << linearVelocity << endl; //DEBUGGING CODE
-        fastPID((searchVelocity-linearVelocity) ,errorYaw, result.pd.setPointVel, result.pd.setPointYaw);
-      }
-    }
-    else {
-      // stopno change
-      left = 0.0;
-      right = 0.0;
-
-      // move back to transform step
-      stateMachineState = STATE_MACHINE_WAYPOINTS;
+      fastPID(0.0, errorYaw, result.pd.setPointVel, result.pd.setPointYaw);
     }
 
     break;
   }
-
-  default:
+  else
   {
-    break;
+    //move to differential drive step
+    stateMachineState = STATE_MACHINE_SKID_STEER;
+
+    //fall through on purpose.
+  }
+}
+
+case STATE_MACHINE_SKID_STEER:
+{
+    // Calculate angle between currentLocation.x/y and waypoints.back().x/y
+    // Drive forward
+    // Stay in this state until angle is at least PI/2
+
+  // calculate the distance between current and desired heading in radians
+  waypoints.back().theta = atan2(waypoints.back().y - currentLocation.y, waypoints.back().x - currentLocation.x);
+  float errorYaw = angles::shortest_angular_distance(currentLocation.theta, waypoints.back().theta);
+  float distance = hypot(waypoints.back().x - currentLocation.x, waypoints.back().y - currentLocation.y);
+
+  //cout << "Skid steer, Error yaw:  " << errorYaw << " target heading : " << waypoints.back().theta << " current heading : " << currentLocation.theta << " error distance : " << distance << endl; //DEBUGGING CODE
+  //cout << "Waypoint x : " << waypoints.back().x << " y : " << waypoints.back().y << " currentLoc x : " << currentLocation.x << " y : " << currentLocation.y << endl; //DEBUGGING CODE
+
+
+
+  // goal not yet reached drive while maintaining proper heading.
+  if (fabs(errorYaw) < M_PI_2 &&  distance > waypointTolerance)
+  {
+    // drive and turn simultaniously
+    result.pd.setPointVel = searchVelocity;
+    if (result.PIDMode == FAST_PID)
+    {
+      //cout << "linear velocity:  " << linearVelocity << endl; //DEBUGGING CODE
+      fastPID((searchVelocity-linearVelocity) ,errorYaw, result.pd.setPointVel, result.pd.setPointYaw);
+    }
+  }
+  else {
+    // stopno change
+    left = 0.0;
+    right = 0.0;
+
+    // move back to transform step
+    stateMachineState = STATE_MACHINE_WAYPOINTS;
   }
 
+  break;
+}
 
-  }
+default:
+{
+  break;
+}
 
-  //package data for left and right values into result struct for use in ROSAdapter
-  result.pd.right = right;
-  result.pd.left = left;
-
-  //return modified struct
-  return result;
 
 }
+
+//package data for left and right values into result struct for use in ROSAdapter
+result.pd.right = right;
+result.pd.left = left;
+
+//return modified struct
+return result;
+
+}
+
 
 bool DriveController::ShouldInterrupt()
 {
@@ -238,7 +257,7 @@ void DriveController::ProcessData()
 {
   //determine if the drive commands are waypoint or precision driving
   if (result.type == waypoint) {
-    
+
     //sets logic controller into stand by mode while drive controller works
     result.type = behavior;
     result.b = noChange;
@@ -297,7 +316,7 @@ void DriveController::fastPID(float errorVel, float errorYaw , float setPointVel
   int right = velOut + yawOut; //left and right are the same for vel output but opposite for yaw output
 
   //prevent combine output from going over tihs value
-  int sat = 180; 
+  int sat = 180;
   if (left  >  sat) {left  =  sat;}
   if (left  < -sat) {left  = -sat;}
   if (right >  sat) {right =  sat;}
@@ -488,4 +507,52 @@ PIDConfig DriveController::constYawConfig() {
 
   return config;
 
+}
+
+bool DriveController::CNMCurrentLocationAVG()
+{
+
+  const int CASIZE = 30;
+
+  float avgCurrentCoordsX[CASIZE];
+  float avgCurrentCoordsY[CASIZE];
+
+    static int index = 0;
+
+    if(index < CASIZE)
+    {
+
+	     avgCurrentCoordsX[index] = currentLocation.x;
+    	 avgCurrentCoordsY[index] = currentLocation.y;
+
+	index++;
+
+	return false;
+    }
+    else
+    {
+	float x = 0, y = 0;
+	for(int i = 0; i < CASIZE; i++)
+	{
+	    x += avgCurrentCoordsX[i];
+	    y += avgCurrentCoordsY[i];
+	}
+
+	x = x/CASIZE;
+	y = y/CASIZE;
+
+  Point cnmAVGCurrentLocation;
+	cnmAVGCurrentLocation.x = x;
+	cnmAVGCurrentLocation.y = y;
+  cnmAVGCurrentLocation.theta = currentLocation.theta;
+
+  DriveController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  //logicController.cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+
+  //staticTest();
+
+	index = 0;
+	return true;
+    }
 }

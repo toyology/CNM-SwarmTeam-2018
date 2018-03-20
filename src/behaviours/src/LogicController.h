@@ -19,13 +19,20 @@
 
 using namespace std;
 
+// This struct contains a controller object and ties it to a priority value as
+// well as providing functionality to compare priorities with the < operator.
 struct PrioritizedController {
   int priority = -1;
   Controller* controller = nullptr;
 
-  PrioritizedController(int pri, Controller* cntrl) : priority(pri), controller(cntrl) {}
+  PrioritizedController(int pri, Controller* cntrl) :
+    priority(pri),
+    controller(cntrl)
+  {
+  }
 
-  inline bool operator <(const PrioritizedController& other) const {
+  inline bool operator <(const PrioritizedController& other) const
+  {
     return priority < other.priority;
   }
 };
@@ -44,6 +51,9 @@ public:
   bool ShouldInterrupt() override;
   bool HasWork() override;
 
+  // Give the controller a list of visible april tags.
+  // NOTE: This function may be named SetTagData() in other classes
+  //       but they are the same function.
   void SetAprilTags(vector<Tag> tags);
   void SetSonarData(float left, float center, float right);
   void SetPositionData(Point currentLocation);

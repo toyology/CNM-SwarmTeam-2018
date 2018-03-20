@@ -47,7 +47,7 @@ DropOffController::~DropOffController() {
 
 Result DropOffController::DoWork() {
 
-  cout << "8" << endl;
+  cout << "CROPOFF - Do work!" << endl;
 
   int count = countLeft + countRight;
 

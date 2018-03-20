@@ -233,7 +233,7 @@ enum class Role{
     searcher3, //searches assigned areas, drops off for gatherer
     hybrid2 //hybrid searches & gathers based on time
   };
-//variable to hold my role 
+//variable to hold my role
 Role myRole;
 int myStartTime;
 vector<ros::Publisher> comms;
@@ -294,7 +294,7 @@ bool sortTrigger2 = true;
 
 int main(int argc, char **argv) {
   /* @@@ */
-    
+
   gethostname(host, sizeof (host));
   string hostname(host);
 
@@ -333,7 +333,7 @@ int main(int argc, char **argv) {
   //AJH: each swarmie has an individual and broadcast subscriber, because some messages are targeted
   //but some messages will need to be sent out to all swarmies at once
   myNameSub =  mNH.subscribe(("dear"+publishedName), 10, &myMessageHandler);
-  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler); 
+  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler);
 
   //broadcastResourceSub = mNH.subscribe(("broadcast/resource"), 1000, &resourceFenceHandler);
   //obstacleWaypointSub  = mNH.subscribe((publishedName+"/obstacle"), 100, &obstacleMsgHandler);
@@ -420,17 +420,17 @@ if (timerTimeElapsed > 33)
     sortOrder();
 }
 
-//TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role & 
-// the time that they were working 
+//TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role &
+// the time that they were working
 if(timerTimeElapsed > 45 && roleReady)
 {
   roleReady = false;
   assignSwarmieRoles(timerTimeElapsed);
 }
 
-//TODO: AJH this is just for testing! I would never in good conscience hard code 
+//TODO: AJH this is just for testing! I would never in good conscience hard code
 //a comparison to a published name. That would be silly.
-if(timerTimeElapsed > 53 && publishedName == "ajax" && firstUpdate) 
+if(timerTimeElapsed > 53 && publishedName == "ajax" && firstUpdate)
 {
   firstUpdate = false;
   testStuff();
@@ -853,7 +853,7 @@ void joyCmdHandler(const sensor_msgs::Joy::ConstPtr& message) {
 
 void publishStatusTimerEventHandler(const ros::TimerEvent&) {
   std_msgs::String msg;
-  msg.data = "online";
+  msg.data = "¡CNM!";
   status_publisher.publish(msg);
 }
 
@@ -1074,12 +1074,12 @@ void sortOrderHandler(const std_msgs::String& msg)
   /*
   string buf; // Have a buffer string
   stringstream ss(allNames); // Insert the string into a stream
-  
+
   while (ss >> buf)
   {
     results.push_back(buf);
   }
-  */    
+  */
 
    //std_msgs::String msgList;
    //stringstream ffs;
@@ -1091,7 +1091,7 @@ void sortOrderHandler(const std_msgs::String& msg)
    //msgList.data = ffs.str();
    //infoLogPublisher.publish(msgList);
 
-   //AJH this might be breaking the whole damn thing eta: egads, I was right!!! 
+   //AJH this might be breaking the whole damn thing eta: egads, I was right!!!
    //but only because I don't know the difference between i & j
    //this will sort our list every time we add a name, so for now it's okay,
    //but it will not work in the case that a swarmie enters the arena part-way
@@ -1114,7 +1114,7 @@ void sortOrderHandler(const std_msgs::String& msg)
 }
 
 //store up to 30 fence locations
-RangeController myFences[30]; 
+RangeController myFences[30];
 
 void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
   stringstream rcvd;
@@ -1122,8 +1122,8 @@ void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
   msg.data = rcvd.str();
   infoLogPublisher.publish(msg);
   //AJH: do stuff
-  int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type  
-    
+  int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type
+
   if (msg_type == swarmie_msgs::Waypoint::ACTION_REACHED)
   {
     logicController.setVirtualFenceOff();
@@ -1354,16 +1354,16 @@ void assignSwarmieRoles(int currentTime){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
       case 0://gather1:
-        myRole = Role::gather1;           
+        myRole = Role::gather1;
         msg.data = ("I am a gatherer!"); //My role is: " + myRole.toString());
         infoLogPublisher.publish(msg);
-        break;  
-      //searchers should get their initial grid areas, which are calculated based on team size and 
+        break;
+      //searchers should get their initial grid areas, which are calculated based on team size and
       //divided based on location
-      //see map on slack 
+      //see map on slack
       case 1://searcher1:
         myRole = Role::searcher1;
-        msg.data = ("I am a searcher! (searcher1)"); 
+        msg.data = ("I am a searcher! (searcher1)");
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
@@ -1384,7 +1384,7 @@ void assignSwarmieRoles(int currentTime){
         break;
       case 2://searcher2:
         myRole = Role::searcher2;
-        msg.data = ("I am a searcher! (searcher2)"); 
+        msg.data = ("I am a searcher! (searcher2)");
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
@@ -1401,7 +1401,7 @@ void assignSwarmieRoles(int currentTime){
         break;
       case 4://searcher3:
         myRole = Role::searcher3;
-        msg.data = ("I am a searcher! (searcher3)"); 
+        msg.data = ("I am a searcher! (searcher3)");
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
@@ -1446,11 +1446,11 @@ void updateBehavior(int currentTime){
     switch(myRole){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
-      case Role::gather1: 
+      case Role::gather1:
         break;
-      //searchers should get their initial grid areas, which are calculated based on team size and 
+      //searchers should get their initial grid areas, which are calculated based on team size and
       //divided based on location
-      //see map on slack 
+      //see map on slack
       case Role::searcher1:
       case Role::searcher2:
       case Role::searcher3:
@@ -1478,7 +1478,7 @@ void testStuff(){
   my_msg.y = y;
   for(int i = 0; i < comms.size(); i++){
     //ros::Publisher& pub = comms.at(i);
-    //pub.publish(my_msg); 
+    //pub.publish(my_msg);
     comms.at(i).publish(my_msg);
     //msg.data = "testing publishers...";
     //infoLogPublisher.publish(msg);

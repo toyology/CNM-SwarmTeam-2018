@@ -148,7 +148,7 @@ ros::Publisher broadcastPub;
 //ros::Publisher obstacleWaypointPub;
 //ros::Publisher miscWaypointPub;
 //TODO: testing functionality of reusing variable name
-ros::Publisher* namedSwarmiePub;
+ros::Publisher namedSwarmiePub;
 
 // Subscribers
 ros::Subscriber joySubscriber;
@@ -242,7 +242,7 @@ vector<ros::Publisher> comms;
 
 swarmie_msgs::Waypoint wmsg;
 swarmie_msgs::Waypoint my_msg;
-std_msgs::String msg;
+std_msgs::String startMsg;
 std_msgs::String Msg;    //sortOrder
 
 bool hasTested = false;
@@ -1015,8 +1015,8 @@ void CNMFirstBoot()
       /*  std_msgs::String msg;
         msg.data = "first boot running ";
           infoLogPublisher.publish(msg);*/
-      msg.data = (publishedName);
-	    startOrderPub.publish(msg);
+      startMsg.data = (publishedName);
+	    startOrderPub.publish(startMsg);
     }
 }
 

@@ -59,13 +59,13 @@ DropOffController::~DropOffController() {
 
 Result DropOffController::DoWork() {
 
-<<<<<<< HEAD
-  cout << "CROPOFF - Do work!" << endl;
 
-=======
+  cout << "DROPOFF - Do work!" << endl;
+
+
   //cout << "8" << endl; //Debugging statement
   // Getting the total tag count from the left and the right side of the rover
->>>>>>> f6db1c09141a11ec4ae3bc4d6206ef314c01dd98
+
   int count = countLeft + countRight;
 
   // If the timer has started

@@ -747,6 +747,8 @@ bool SearchController::updateSearch(){
         searchState = stashState;
         cnmSearchLoop = stashLoop;
         searchCounter = stashCounter;
+        //finally, clear waypoints
+        stash.wpts.waypoints.clear();
         //since we still have work on our previous search, return false
         return false;
     }
@@ -766,11 +768,34 @@ void SearchController::setStartingPoint(Point p, double radius){
     //reset our search state to a wagon wheel? yes?
     //although ideally we would be able to switch among different types of search pattern, 
     //right now our options are to switch between one & random
+
     searchState = SearchState::SECTOR;
     SetSectorRadius(radius);
     cnmSetCenterLocation(p);
     cnmSearchLoop = 0;
     searchCounter = radius;
+}
+
+//overloaded method for our gather swarmies
+void SearchController::setStartingPoint(double offsetStart, double increment, Point p)
+{
+    //set our initial starting point for a search area
+    //first, tell our search controller that this is the first waypoint
+    first_waypoint = true;
+    //then, clear our current results.waypoints vector
+    result.wpts.waypoints.clear();
+    //then, add our grid area's center point to our waypoints list  
+    result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
+    //reset our search state to a wagon wheel? yes?
+    //although ideally we would be able to switch among different types of search pattern, 
+    //right now our options are to switch between one & random
+
+    searchState = SearchState::OCTAGON;
+    searchDist = increment;
+    //should be center of map
+    cnmSetCenterLocation(p);
+    cnmSearchLoop = OctagonSearchStartPosition();
+    searchCounter = offsetStart;
 }
 
 void SearchController::stashCurrentSearch()

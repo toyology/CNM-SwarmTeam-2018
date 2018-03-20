@@ -455,14 +455,13 @@ if (timerTimeElapsed > 33)
 //the time that they were working 
 //also, this is almost a minute after boot, but any earlier and we can't 
 //guarantee the efficacy of our role call messages
-if(timerTimeElapsed > 65 && roleReady)
-{
-  roleReady = false;
-  assignSwarmieRoles(timerTimeElapsed);
-}
-
 if(gpsAveraged && !mapBuilt)
 {
+  if(timerTimeElapsed > 65 && roleReady)
+  {
+    roleReady = false;
+    assignSwarmieRoles(timerTimeElapsed);
+  }
   mapBuilt = true;
   buildMap();
 }
@@ -1381,6 +1380,7 @@ void assignSwarmieRoles(int currentTime){
 
   //fire initial behavior starts now
   //assign my role based on myID and swarmie team size:
+  double increment = 0.0;
   switch(myID){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
@@ -1391,20 +1391,33 @@ void assignSwarmieRoles(int currentTime){
         static const int myBigArray1[8] = {6,7,8,11,12,16,17,18};
         myAreasBig = &myBigArray1[0];
         //TODO: start the octagon (inner loop)
-
+        if(numSwarmies > 4)
+        {
+          increment = 0.50;
+        }
+        else
+        {
+          increment = 1.00;
+        }
+        //start our first octagon 1.5 m from center
+        logicController.startGather(increment, 1.5, cnmCenterLocation);
         break;  
       //searchers should get their initial grid areas, which are calculated based on team size and 
       //divided based on location
       //see map on slack 
       case 3://gather2
+      {
         myRole = Role::gather2;
         msg.data = ("I am a gatherer! (gather2)");
         infoLogPublisher.publish(msg);
         static const int myBigArray2[8] = {6,7,8,11,12,16,17,18};
         myAreasBig = &myBigArray2[0];
         //TODO: start the octagon (outer loop)
-
+        increment = 1.00;
+        //start our first octagon 1.5 m from center
+        logicController.startGather(increment, 2.0, cnmCenterLocation);
         break;
+      }  
       case 1://searcher1:
         myRole = Role::searcher1;
         msg.data = ("I am a searcher! (searcher1)"); 

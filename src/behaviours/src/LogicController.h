@@ -99,6 +99,8 @@ public:
   //AJH added code
   //change areas resets our start location by reseting search start stuff 
   void changeAreas(Point start, double radius);
+  //start for our gather swarmies only
+  void startGather(double offsetStart, double increment, Point p);
   void goHelp(Point start, double radius);
 
 protected:

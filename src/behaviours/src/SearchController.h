@@ -93,7 +93,9 @@ public:
 
   //AJH added a way to interrupt our current search & set a new starting point
   //for moving to new grid areas (the center point of the grid area)
+  //plus overloaded method to start our octagon search loops
   void setStartingPoint(Point p, double radius);
+  void setStartingPoint(double offsetStart, double increment, Point p);
   //stash current search saves our current search stage, if any
   void stashCurrentSearch();
   //update search tells us whether or not we have stuff to return to

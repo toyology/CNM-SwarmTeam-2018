@@ -262,7 +262,7 @@ void testStuff();
 //Kaily's Outlier Code
 Point coord[50];
 Point removeOutliers(int data_types, Point gps_points[], int data_points);
-int fireTimer = 3.25;
+double fireTimer = 3.25;
 int indexTest = 0;
 
 
@@ -425,7 +425,7 @@ if(timerTimeElapsed > fireTimer && !gpsAveraged)
   {
     coord[indexTest].x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
     coord[indexTest].y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
-    cout << "OUTLIER - current time is "<< timerTimeElapsed <<", reading gps pt # " << centerIndex <<": " << coord[centerIndex].x << ", " << coord[centerIndex].y << endl;
+    cout << "OUTLIER - current time is "<< fireTimer <<", reading gps pt # " << indexTest <<": " << coord[indexTest].x << ", " << coord[indexTest].y << endl;
     coord[indexTest].theta = currentLocationMap.theta;
     indexTest++;
   }  
@@ -434,6 +434,7 @@ if(timerTimeElapsed > fireTimer && !gpsAveraged)
     cout << "OUTLIER - finished collecting points" << endl;
     gpsAveraged = true;
     cnmCenterLocation = removeOutliers(3,coord,50);
+    //logicController.SetCenterLocationMap(cnmCenterLocation);
     cout << "OUTLIER - " << publishedName << " my pts to average: " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
   }
   fireTimer += .25;
@@ -464,18 +465,6 @@ if(gpsAveraged && !mapBuilt)
 {
   mapBuilt = true;
   buildMap();
-  if(myID !=0 && gpsAveraged)
-  {
-    //ACTION_REMOVED
-    wmsg.action = 2;
-    wmsg.x = cnmCenterLocation.x;
-    wmsg.y = cnmCenterLocation.y;
-    //send swarmie #0 our centerLocationPoint for averaging
-    comms.at(0).publish(wmsg);
-  }
-  else{
-    cout << "OUTLIER - no averaged points to send (or my name is achilles)" << endl;
-  }
 }
 
 /*
@@ -487,8 +476,9 @@ if(timerTimeElapsed > 53 && publishedName == "artemis" && firstUpdate)
   testStuff();
 }*/
 
-//at each taskTime elapsed, update our roles
-if((timerTimeElapsed/60000) >= taskTime){
+//at each taskTime elapsed (timerTimeElapsed is in seconds), 
+//update our roles
+if((timerTimeElapsed/60) >= taskTime){
   updateBehavior(timerTimeElapsed, update);
   //set our next task timer deadline
   taskTime += taskTime;
@@ -527,10 +517,12 @@ if((timerTimeElapsed/60000) >= taskTime){
       centerOdom.theta = centerLocation.theta;
       logicController.SetCenterLocationOdom(centerOdom);
 
-      Point centerMap;
-      centerMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
-      centerMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
-      centerMap.theta = centerLocationMap.theta;
+      Point& centerMap = cnmCenterLocation;
+      //centerMap.x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
+      //centerMap.y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
+      //centerMap.theta = centerLocationMap.theta;
+      //just use our cnm calculated version of this
+      //&& this should mean centerMap actually points to cnmCenterMap
       logicController.SetCenterLocationMap(centerMap);
 
       /*Point cnmCenterMap;
@@ -1165,37 +1157,7 @@ void myMessageHandler(const swarmie_msgs::Waypoint& my_msg)
   int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type  
   if (msg_type == swarmie_msgs::Waypoint::ACTION_REACHED)
   {
-    //averaging our center points & returning a broadcast point 
-    if(myID == 0 && !gpsAverageSent){
-      if(gpsCount < swarmieNames.size()-1)
-      {
-        cnmCenterLocation.x += my_msg.x;
-        cnmCenterLocation.y += my_msg.y;
-        cout << "OUTLIER - rcvd gps pt to average: " << my_msg.x << ", " << my_msg.y << endl;
-        gpsCount++;
-      }
-      if(gpsCount == swarmieNames.size()-1)
-      {
-        int numSwarmies = swarmieNames.size();
-        cnmCenterLocation.x = cnmCenterLocation.x/numSwarmies;
-        cnmCenterLocation.y = cnmCenterLocation.y/numSwarmies;
-        cout << "OUTLIER - new averaged center point " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
-        //once we average the points, broadcast the averaged point back to all swarmies
-        wmsg.action = 0;
-        wmsg.x = cnmCenterLocation.x;
-        wmsg.y = cnmCenterLocation.y;
-        broadcastPub.publish(wmsg);
-        gpsAverageSent = true;
-      }
-    }
-    else
-    {
-      //set our center location to the averaged variable we received from our calculating swarmie
-      cnmCenterLocation.x = my_msg.x;
-      cnmCenterLocation.y = my_msg.y;
-      cout << "I received a new center point! " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
-    }
-    //logicController.setVirtualFenceOff();
+    //do something?
   }
   else
   {
@@ -1243,7 +1205,9 @@ void myMessageHandler(const swarmie_msgs::Waypoint& my_msg)
         Point obstacleLoc;
         obstacleLoc.x = center.x;
         obstacleLoc.y = center.y;
-        //logicController.setVirtualFenceOn( new RangeCircle(obstacleLoc, 0.5));
+        //RangeController::RangeCircle newFence = RangeController::RangeCircle(obstacleLoc, 0.5);
+        //myFences.push_back(newFence);
+        //logicController.setVirtualFenceOn(newFence);
         //RangeController::RangeCircle(obstacleLoc, 0.5);
         break;
       }
@@ -1668,14 +1632,15 @@ Point removeOutliers(int data_types, Point gps_points[], int data_points) {
       float sum_data_y = 0;
       float sum_data_squared_x = 0;
       float sum_data_squared_y = 0;
-      float n_x = (float)data_points;
-      float n_y = (float)data_points;
+      //TODO removed float cast AJH
+      int n_x = data_points;
+      int n_y = data_points;
       
       // find sum_data & sum_data_squared
       for (int i = 0; i < data_points; i++) {
         // x
         sum_data_x += gps_points[i].x;
-        sum_data_squared_x += pow(gps_points[i].y,2);
+        sum_data_squared_x += pow(gps_points[i].x,2);
         
         // y
         sum_data_y += gps_points[i].y;
@@ -1707,17 +1672,19 @@ Point removeOutliers(int data_types, Point gps_points[], int data_points) {
         if ((gps_points[i].x > small_x)&&(gps_points[i].x < big_x)) {
           sum_new_x += gps_points[i].x;
         } else {
-          n_x -= 1;
+          n_x--;// 1;
         }
         
         if ((gps_points[i].y > small_y)&&(gps_points[i].y < big_y)) {
           sum_new_y += gps_points[i].y;
         } else {
-          n_y -= 1;
+          n_y--;// 1;
         }
       }
       
       // result
+      cout << "OUTLIER - x pts to average " << n_x << endl;
+      cout << "OUTLIER - y pts to average " << n_y << endl;
       mean_new.x = sum_data_x/n_x;
       mean_new.y = sum_data_y/n_y;
       cout << "OUTLIER - Averaged (x,y): (" << mean_new.x << "," << mean_new.y << ")" << endl;

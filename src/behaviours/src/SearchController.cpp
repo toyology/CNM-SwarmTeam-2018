@@ -96,14 +96,21 @@ Result SearchController::DoWork()
     }
     else
     {
-        if(++obstacleAvoidanceCount > 3)
-        {
-            cnmSearchLoop++;
-            searchStep++;
-            obstacleAvoidanceCount = 0;
-            if(++totalObstacleAvoidanceCount > 10)
-                searchState = RANDOM;
+        //right now, we always want our gather swarmies to 
+        //stick with the octagon pattern
+        //all other search patterns should switch to random, if 
+        //they encounter enough obstacles
+        if(!searchState == OCTAGON){
+            if(++obstacleAvoidanceCount > 3)
+            {
+                cnmSearchLoop++;
+                searchStep++;
+                obstacleAvoidanceCount = 0;
+                if(++totalObstacleAvoidanceCount > 10)
+                    searchState = RANDOM;
+            }
         }
+
     }
     
     
@@ -737,6 +744,7 @@ bool SearchController::updateSearch(){
     if(stash.wpts.waypoints.size()!=0)
     {
         result = stash;
+        searchState = stashState;
         cnmSearchLoop = stashLoop;
         searchCounter = stashCounter;
         //since we still have work on our previous search, return false
@@ -756,11 +764,13 @@ void SearchController::setStartingPoint(Point p, double radius){
     //then, add our grid area's center point to our waypoints list  
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
     //reset our search state to a wagon wheel? yes?
-    searchState = SearchState::STAR;
+    //although ideally we would be able to switch among different types of search pattern, 
+    //right now our options are to switch between one & random
+    searchState = SearchState::SECTOR;
     SetSectorRadius(radius);
     cnmSetCenterLocation(p);
     cnmSearchLoop = 0;
-    searchCounter = 0;
+    searchCounter = radius;
 }
 
 void SearchController::stashCurrentSearch()
@@ -770,6 +780,7 @@ void SearchController::stashCurrentSearch()
     {
         //copy current waypoints into our stash
         stash = result;
+        stashState = searchState;
         stashLoop = cnmSearchLoop;
         stashCounter = searchCounter;
         cnmSearchLoop = 0;

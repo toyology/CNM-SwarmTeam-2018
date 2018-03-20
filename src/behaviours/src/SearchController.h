@@ -70,7 +70,9 @@ public:
   RANDOM
   }; 
   
-  SearchState searchState; 
+  SearchState searchState;  
+  //holds our search state so that we can
+  SearchState stashState; 
                        
   //Added 3-6-2018
   //Setting Search State

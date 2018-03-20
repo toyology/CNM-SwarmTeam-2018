@@ -1,4 +1,5 @@
 #include "ObstacleController.h"
+//#include "SearchController.h"
 
 ObstacleController::ObstacleController()
 {
@@ -60,6 +61,7 @@ Result ObstacleController::DoWork() {
   clearWaypoints = true;
   set_waypoint = true;
   result.PIDMode = CONST_PID;
+  int test;
 
   // The obstacle is an april tag marking the collection zone
   if(collection_zone_seen){
@@ -84,7 +86,11 @@ Result ObstacleController::DoWork() {
     result.wpts.waypoints.clear();
     result.wpts.waypoints.push_back(forward);
   }
-
+  
+  //Added 3-10-2018 for tracking obstacle avoidance
+  //SearchController::cnmSetObstacleAvoidanceState();
+  cnmObstacleAvoided = true;
+  
   return result;
 }
 

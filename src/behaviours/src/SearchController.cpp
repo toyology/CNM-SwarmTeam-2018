@@ -486,9 +486,9 @@ void SearchController::cnmSetCenterLocation(Point newLocation)
 void SearchController::SetCenterLocation(Point centerLocation) 
 {
     
-    float diffX = this->centerLocation.x - centerLocation.x;
-    float diffY = this->centerLocation.y - centerLocation.y;
-    this->centerLocation = centerLocation;
+    float diffX = this->cnmCenterLocation.x - centerLocation.x;
+    float diffY = this->cnmCenterLocation.y - centerLocation.y;
+    this->cnmCenterLocation = centerLocation;
     
     if (!result.wpts.waypoints.empty())
     {
@@ -554,19 +554,19 @@ int SearchController::SquareSearchStartPosition()
 {
     int searchLoop =0;
     
-    if (currentLocation.theta + M_PI <= angles::from_degrees(80))
+    if (cnmCurrentLocation.theta + M_PI <= angles::from_degrees(80))
     {
         searchLoop = 0;
     }
-    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(170))
+    else if (cnmCurrentLocation.theta  + M_PI  <= angles::from_degrees(170))
     {
         searchLoop = 1;
     }
-    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(260))
+    else if (cnmCurrentLocation.theta  + M_PI  <= angles::from_degrees(260))
     {
         searchLoop = 2;
     }
-    else if (currentLocation.theta  + M_PI <= angles::from_degrees(350))
+    else if (cnmCurrentLocation.theta  + M_PI <= angles::from_degrees(350))
     {
         searchLoop = 3;
     }
@@ -580,35 +580,35 @@ int SearchController::OctagonSearchStartPosition()
 {
     int searchLoop = 0;
     
-    if (currentLocation.theta + M_PI<= angles::from_degrees(45))
+    if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 7;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(90))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(90))
     {
         searchLoop = 0;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(135))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(135))
     {
         searchLoop = 1;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(180))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(180))
     {
         searchLoop = 2;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(225))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(225))
     {
         searchLoop = 3;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(275))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(275))
     {
         searchLoop = 4;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(315))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(315))
     {
         searchLoop = 5;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(360))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(360))
     {
         searchLoop = 6;
     }
@@ -622,19 +622,19 @@ int SearchController::StarSearchStartPosition()
 {
     int searchLoop = 0;
     
-    if (currentLocation.theta + M_PI<= angles::from_degrees(45))
+    if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 1;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(135))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(135))
     {
         searchLoop = 0;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(275))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(275))
     {
         searchLoop = 2;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(360))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(360))
     {
         searchLoop = 1;
     }
@@ -647,31 +647,31 @@ int SearchController::SectorSearchStartPosition()
 {
     int searchLoop = 0;
     
-    if (currentLocation.theta + M_PI<= angles::from_degrees(45))
+    if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 3;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(90))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(90))
     {
         searchLoop = 0;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(135))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(135))
     {
         searchLoop = 1;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(225))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(225))
     {
         searchLoop = 4;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(270))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(270))
     {
         searchLoop = 5;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(315))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(315))
     {
         searchLoop = 2;
     }
-    else if (currentLocation.theta + M_PI<= angles::from_degrees(360))
+    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(360))
     {
         searchLoop = 3;
     }

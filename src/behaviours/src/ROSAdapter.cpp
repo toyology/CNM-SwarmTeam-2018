@@ -87,7 +87,6 @@ void sortOrder();     //SortOrder
 Point updateCenterLocation();
 void transformMapCentertoOdom();
 
-
 // Numeric Variables for rover positioning
 geometry_msgs::Pose2D currentLocation;          //current location of robot
 geometry_msgs::Pose2D currentLocationMap;       //current location on MAP
@@ -215,6 +214,8 @@ bool purgeMap = false;
 //AJH added variables:
 int switchSwarmie = 0;
 bool roleReady = true;
+bool gpsAverageSent = false;
+int gpsCount = 0;
 int update = 1;
 enum class Role{
     //teamsize == 3
@@ -245,6 +246,7 @@ std_msgs::String Msg;    //sortOrder
 
 bool hasTested = false;
 bool gpsAveraged = false;
+bool mapBuilt = false;
 vector<std::string> swarmieNames;
 void assignSwarmieRoles(int startTime);
 void updateBehavior(int currentTime, int update);
@@ -258,11 +260,17 @@ RangeController foundObstacles[30];
 //AJH for testing, obvs. Hoping that was obvious to everyone involved
 void testStuff();
 //Kaily's Outlier Code
-Point removeOutliers(int data_points, Point gps_pts[], int index);
+Point coord[50];
+Point removeOutliers(int data_types, Point gps_points[], int data_points);
+int fireTimer = 3.25;
+int indexTest = 0;
+
 
 //ARRAYS FOR CENTER
-const int ASIZE = 100;
+const int ASIZE = 200;
 int centerIndex = 0;
+
+//TODO AJH possibly we're no longer using those???
 bool maxedCenterArray = false;
 
 const int CASIZE = 30;
@@ -272,7 +280,6 @@ float avgCurrentCoordsY[CASIZE];
 
 //Point cnmCurrentLocation;
 void CNMCurrentLocationAVG();      //Averages current location on map
-
 void CNMProjectCenter();
 
 //Actual Center Array
@@ -345,23 +352,11 @@ int main(int argc, char **argv) {
   myNameSub =  mNH.subscribe(("dear"+publishedName), 10, &myMessageHandler);
   broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler); 
 
-  //broadcastResourceSub = mNH.subscribe(("broadcast/resource"), 1000, &resourceFenceHandler);
-  //obstacleWaypointSub  = mNH.subscribe((publishedName+"/obstacle"), 100, &obstacleMsgHandler);
-  //broadcastObstacleSub = mNH.subscribe(("broadcast/obstacle"), 100, &obstacleMsgHandler);
-  //miscWaypointSub = mNH.subscribe((publishedName+"/misc"), 1000, &miscHandler);
-  //broadcastMiscSub = mNH.subscribe(("broadcast/misc"), 1000, &miscHandler);
-
-
   //CNM CODE
   startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
   sortOrderPub = mNH.advertise<std_msgs::String>("sortOrder", 1000);			//sortOrder
-  //AJH: each swarmie publishes to a single swarmie based on roles, etc.
-  //the variable 'currentRecipientName' holds the name of the swarmie we're trying to send to
-  //manualWaypointPublisher = mNH.advertise<swarmie_msgs::Waypoint>((publishedName + "/waypoints/cmd"), 10, true);
+  //all swarmies subscribe to the broadcast message, and all swarmies hail to the hypnotoad
   broadcastPub = mNH.advertise<swarmie_msgs::Waypoint>("broadcast", 100, true);
-  //obstacleWaypointPub = mNH.advertise<geometry_msgs::Point>(("broadcast/obstacle"), 10, true);
-  //zombie waypoints
-  //miscWaypointPub = mNH.advertise<geometry_msgs::Point>(("broadcast/misc"),10,true);
 
   status_publisher = mNH.advertise<std_msgs::String>((publishedName + "/status"), 1, true);
   stateMachinePublish = mNH.advertise<std_msgs::String>((publishedName + "/state_machine"), 1, true);
@@ -417,8 +412,33 @@ int main(int argc, char **argv) {
 // This function calls the dropOff, pickUp, and search controllers.
 // This block passes the goal location to the proportional-integral-derivative
 // controllers in the abridge package.
+
 void behaviourStateMachine(const ros::TimerEvent&)
 {
+
+//const int ASIZE = 200;
+//int centerIndex = 0;
+//bool fireTimer = ((lrint(timerTimeElapsed)*10)%3 == 0);
+if(timerTimeElapsed > fireTimer && !gpsAveraged)
+{
+  if(indexTest < 50)
+  {
+    coord[indexTest].x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
+    coord[indexTest].y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
+    cout << "OUTLIER - current time is "<< timerTimeElapsed <<", reading gps pt # " << centerIndex <<": " << coord[centerIndex].x << ", " << coord[centerIndex].y << endl;
+    coord[indexTest].theta = currentLocationMap.theta;
+    indexTest++;
+  }  
+  if(indexTest == 50 && !gpsAveraged)
+  {
+    cout << "OUTLIER - finished collecting points" << endl;
+    gpsAveraged = true;
+    cnmCenterLocation = removeOutliers(3,coord,50);
+    cout << "OUTLIER - " << publishedName << " my pts to average: " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
+  }
+  fireTimer += .25;
+}
+
 
 if (timerTimeElapsed > 31)
 {
@@ -434,11 +454,28 @@ if (timerTimeElapsed > 33)
 //the time that they were working 
 //also, this is almost a minute after boot, but any earlier and we can't 
 //guarantee the efficacy of our role call messages
-if(timerTimeElapsed > 45 && roleReady)
+if(timerTimeElapsed > 65 && roleReady)
 {
   roleReady = false;
-  buildMap();
   assignSwarmieRoles(timerTimeElapsed);
+}
+
+if(gpsAveraged && !mapBuilt)
+{
+  mapBuilt = true;
+  buildMap();
+  if(myID !=0 && gpsAveraged)
+  {
+    //ACTION_REMOVED
+    wmsg.action = 2;
+    wmsg.x = cnmCenterLocation.x;
+    wmsg.y = cnmCenterLocation.y;
+    //send swarmie #0 our centerLocationPoint for averaging
+    comms.at(0).publish(wmsg);
+  }
+  else{
+    cout << "OUTLIER - no averaged points to send (or my name is achilles)" << endl;
+  }
 }
 
 /*
@@ -481,8 +518,6 @@ if((timerTimeElapsed/60000) >= taskTime){
     
     if (timerTimeElapsed > startDelayInSeconds)
     {
-
-
       // initialization has run
       initilized = true;
       //TODO: this just sets center to 0 over and over and needs to change
@@ -542,31 +577,6 @@ if((timerTimeElapsed/60000) >= taskTime){
   {
 
     humanTime();
-    //
-    int i = centerIndex;
-    //try averaging our gps location here:
-    if(i <= 20)//ASIZE) //&& (((int)(timerTimeElapsed*1000)%300 == 0)))
-    {
-      CenterCoords[i].x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
-      CenterCoords[i].y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
-      CenterCoords[i].theta = currentLocation.theta;
-      //CenterXCoordinates[centerIndex] = currentLocationMap.x;
-      //CenterYCoordinates[centerIndex] = currentLocationMap.y;
-
-      //stringstream ss;
-      //ss << "reading position X: " <<   centerLocationMap.x << " Y: " << centerLocationMap.y << "  i: " << i << endl;
-      //msg.data = ss.str();
-      //infoLogPublisher.publish(msg);
-      centerIndex++;
-    }
-    else if(i >= 20 && !gpsAveraged){
-      gpsAveraged = true;
-      centerIndex = 0;
-      removeOutliers(3,CenterCoords,20);
-      CNMProjectCenter();
-    }
-
-
 
     //update the time used by all the controllers
     logicController.SetCurrentTimeInMilliSecs( getROSTimeInMilliSecs() );
@@ -625,7 +635,6 @@ if((timerTimeElapsed/60000) >= taskTime){
 
     //publishHandeling here
     //logicController.getPublishData(); suggested
-
     //adds a blank space between sets of debugging data to easily tell one tick from the next
     cout << endl;
 
@@ -742,13 +751,16 @@ void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& messag
           comms.at(0).publish(my_msg);
         }
         if(comms.size()>4){
-          switchSwarmie++;
           //switch off sending to gatherer 1 & hybrid
           //for every third message?
-          if(switchSwarmie%3 == 0){
-            comms.at(5).publish(my_msg);
+          if(switchSwarmie%2 == 0){
+            //publish every other message to gatherer #2
+            comms.at(3).publish(my_msg);
           }
-          comms.at(0).publish(my_msg);
+          else{
+            comms.at(0).publish(my_msg);
+          }
+          switchSwarmie++;
         }
       }
     }
@@ -1141,20 +1153,49 @@ void sortOrderHandler(const std_msgs::String& msg)
        }
      }
    }
-
 } 
 
-void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
+void myMessageHandler(const swarmie_msgs::Waypoint& my_msg)
+{
   stringstream rcvd;
 
   msg.data = rcvd.str();
   infoLogPublisher.publish(msg);
   //AJH: do stuff
   int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type  
-    
   if (msg_type == swarmie_msgs::Waypoint::ACTION_REACHED)
   {
-    logicController.setVirtualFenceOff();
+    //averaging our center points & returning a broadcast point 
+    if(myID == 0 && !gpsAverageSent){
+      if(gpsCount < swarmieNames.size()-1)
+      {
+        cnmCenterLocation.x += my_msg.x;
+        cnmCenterLocation.y += my_msg.y;
+        cout << "OUTLIER - rcvd gps pt to average: " << my_msg.x << ", " << my_msg.y << endl;
+        gpsCount++;
+      }
+      if(gpsCount == swarmieNames.size()-1)
+      {
+        int numSwarmies = swarmieNames.size();
+        cnmCenterLocation.x = cnmCenterLocation.x/numSwarmies;
+        cnmCenterLocation.y = cnmCenterLocation.y/numSwarmies;
+        cout << "OUTLIER - new averaged center point " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
+        //once we average the points, broadcast the averaged point back to all swarmies
+        wmsg.action = 0;
+        wmsg.x = cnmCenterLocation.x;
+        wmsg.y = cnmCenterLocation.y;
+        broadcastPub.publish(wmsg);
+        gpsAverageSent = true;
+      }
+    }
+    else
+    {
+      //set our center location to the averaged variable we received from our calculating swarmie
+      cnmCenterLocation.x = my_msg.x;
+      cnmCenterLocation.y = my_msg.y;
+      cout << "I received a new center point! " << cnmCenterLocation.x << ", " << cnmCenterLocation.y << endl;
+    }
+    //logicController.setVirtualFenceOff();
   }
   else
   {
@@ -1558,14 +1599,14 @@ void buildMap()
   //I'd ask that you not continue to question my judgement on this matter  
   for(int i = 0; i < 5; i++){
     Point temp;
-    temp.y = centerLocation.y + y_start;
+    temp.y = cnmCenterLocation.y + y_start;
     //decrement y offset in our outer loop each time we fire 
     //reset our x_offset each time we loop through
     y_start = y_start - y_offset;
     int x = x_start;
     for(int k = 0; k < 5; k++){
       //TODO AJH centerLocation, or centerLocationMap?
-      temp.x = centerLocation.x + x;
+      temp.x = cnmCenterLocation.x + x;
       temp.theta = atan(temp.y/temp.x);
       int index = i*5 + k;
       mapAreas[index] = temp;
@@ -1576,136 +1617,115 @@ void buildMap()
   }
 }
 
-const static int ARRAY_SIZE = 100;
-
-Point removeOutliers(int data_points, Point gps_points[], int index)
-{        
-  cout << "OUTLIER - averaging points";
-  // create return array
-  Point mean_new; //mean_new holds an x, y, (and sometimes theta) avg val
-  float sum_data = 0; // resets for each axis
-  float sum_data_sqrd = 0;
-  //int n = data_points; // number of data points in axis
-  float n = (float)data_points; // number of data points in axis
+Point removeOutliers(int data_types, Point gps_points[], int data_points) {
+  // print
+  cout << "Outlier - Averaging Points" << endl;
   
-  float sum_data_x = 0;
-  float sum_data_y = 0;
-  float sum_data_theta = 0;
-  float sum_data_x_sqrd = 0;
-  float sum_data_y_sqrd = 0;
-  float sum_data_theta_sqrd = 0;
-
-  switch(data_points){
-    case 3: //work with x, y, & theta
-    {  
-      for(int j = 0; j < (index-1); j++)
-      {
-        sum_data_theta += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta; // sum of data set y 
-        sum_data_theta_sqrd += pow(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta,2);// sum of data set points squared
-        //cout << "OUTLIER - sqrt " << sum_data_theta_sqrd << endl;
-        //cout << "OUTLIER - GPS pt theta: " << gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta << endl;
-      }
-
-      float mean_theta = sum_data_theta/n;
-      float std_dev_theta = pow((sum_data_theta_sqrd-(pow(sum_data_theta,2)/n))/n,0.5);
-      cout << "OUTLIER - std dev theta: " << std_dev_theta << endl;
-      float sum_new_theta = 0;
-      //cout << mean_0<<"  "<<std_dev<<endl;
+  // return array
+  Point mean_new; // Averaged point returned as the centerLocation.x & *.y
+  
+  switch(data_types) {
+    case 3: // theta std_dev
+    {     
+      // variables for summed data_points
+      float sum_data = 0;
+      float sum_data_squared = 0;
+      float n = (float)data_points;
       
-      // ignore if data point > +- 1.5 stddevs (~13.5% of data set) away from original mean
-      // calculate new mean
-      // separates logic tests to make them easier to understand
-      float small_theta = mean_theta - (1.5*std_dev_theta); // 1.5 stddevs LESS than mean value
-      float big_theta = mean_theta + (1.5*std_dev_theta); // 1.5 stddevs MORE than mean value
-
-      for (int j = (index-1); j > ((index-1)-n); j--) 
-      {
-          // checks if data point is within acceptable range
-          if ((gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta > small_theta)
-              &&(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta < big_theta))
-          { // adds to mean if inside the +- 1.5 stddevs
-              sum_new_theta += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].theta;
-
-          } 
-          else 
-          {
-              n-=1; // decreases n if point value is outside the stddev range
-          }
+      // find sum_data & sum_data_squared
+      for (int i = 0; i < data_points; i++) {
+        sum_data += gps_points[i].theta;
+        sum_data_squared += pow(gps_points[i].theta,2);
       }
-
-      mean_new.theta = sum_new_theta/n;
-
-      cout << "OUTLIER - new point average theta: " << mean_new.theta << endl;
-      //don't break, cascade into case 2 data
-    }
-    case 2:
+      
+      float mean_theta = sum_data/n;
+      float std_dev = pow((sum_data_squared-(pow(sum_data,2)/n))/n,0.5);
+      float sum_new = 0;
+      
+      // ignore if abs(theta) +- 1.5 std_dev
+      // calculates ranges
+      float small = mean_theta - (1.5*std_dev);
+      float big = mean_theta + (1.5*std_dev);
+      
+      // finds new sums without ignored values
+      for (int i = 0; i < data_points; i++) {
+        if ((gps_points[i].theta > small)&&(gps_points[i].theta < big)) {
+          sum_new += gps_points[i].theta;
+        } else {
+          n -= 1;
+        }
+      }
+      
+      // result
+      mean_new.theta = sum_new/n;
+      cout << "Averaged theta: " << mean_new.theta << endl;
+      
+    } 
+    case 2: // x,y std_dev
     {
-     //work with just x & y
-      for(int j = 0; j < (index-1); j++)
-      {
-        sum_data_x += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x; // sum of data set x
-        sum_data_x_sqrd += pow(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x,2);// sum of data set points squared
-        sum_data_y += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y; // sum of data set y 
-        sum_data_y_sqrd += pow(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y,2);// sum of data set points squared
-        //cout << " OUTLIER - sqrd " << sum_data_x_sqrd << ", "<< sum_data_y_sqrd <<endl;
-        //cout << "OUTLIER - GPS pt (x, y): " << gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x << ", " << gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y <<endl;
-      }
-
-      float mean_x = sum_data_x/n; // mean of original data set x
-      float mean_y = sum_data_y/n; // mean of original data set x
-
-      float std_dev_x = pow((sum_data_x_sqrd-(pow(sum_data_x,2)/n))/n,0.5);
-      float std_dev_y = pow((sum_data_y_sqrd-(pow(sum_data_y,2)/n))/n,0.5);
-      cout << "OUTLIER - std dev x,y: " << std_dev_x << ", " << std_dev_y << endl;
-      float sum_new_x = 0;
-      float sum_new_y = 0;
-      //cout << mean_0<<"  "<<std_dev<<endl;
+      // variables for summed data_points
+      float sum_data_x = 0;
+      float sum_data_y = 0;
+      float sum_data_squared_x = 0;
+      float sum_data_squared_y = 0;
+      float n_x = (float)data_points;
+      float n_y = (float)data_points;
       
-      // ignore if data point > +- 1.5 stddevs (~13.5% of data set) away from original mean
-      // calculate new mean
-      // separates logic tests to make them easier to understand
-
-      double small_x = mean_x - (1.5*std_dev_x); // 1.5 stddevs LESS than mean value
-      double big_x = mean_x + (1.5*std_dev_x); // 1.5 stddevs MORE than mean value
-      double small_y = mean_y - (1.5*std_dev_y); // 1.5 stddevs LESS than mean value
-      double big_y = mean_y + (1.5*std_dev_y); // 1.5 stddevs MORE than mean value
-      float x_n = (float)data_points;
-      float y_n = (float)data_points; //we may have to reset this at this point, but if not it won't hurt
-      for (int j = (index-1); j > ((index-1)-n); j--) 
-      {
-          // checks if data point is within acceptable range
-          if ((gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x > small_x)
-              &&(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x < big_x))
-          { // adds to mean if inside the +- 1.5 stddevs
-              sum_new_x += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].x;
-          } 
-          else
-          {
-            x_n-=1;
-          }
-          if((gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y > small_y)
-            &&(gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y < big_y))
-          {
-              sum_new_y += gps_points[(j+ARRAY_SIZE)%ARRAY_SIZE].y;
-          }
-          else 
-          {
-              y_n-=1; // decreases n if point value is outside the stddev range
-          }
+      // find sum_data & sum_data_squared
+      for (int i = 0; i < data_points; i++) {
+        // x
+        sum_data_x += gps_points[i].x;
+        sum_data_squared_x += pow(gps_points[i].y,2);
+        
+        // y
+        sum_data_y += gps_points[i].y;
+        cout << "OUTLIER - y val " << gps_points[i].y << endl;
+        sum_data_squared_y += pow(gps_points[i].y,2);
       }
-
-      mean_new.x = sum_new_x/x_n;
-      mean_new.y = sum_new_y/y_n;
-
-      cout << "OUTLIER - new point average: " << mean_new.x <<  ", " << mean_new.y << endl;
+      
+      // x values
+      float mean_x = sum_data_x/n_x;
+      float std_dev_x = pow((sum_data_squared_x-(pow(sum_data_x,2)/n_x))/n_x,0.5);
+      float sum_new_x = 0;
+      
+      // y values
+      float mean_y = sum_data_y/n_y;
+      cout << "OUTLIER - mean y " << mean_y << endl;
+      float std_dev_y = pow((sum_data_squared_y-(pow(sum_data_y,2)/n_y))/n_y,0.5);
+      cout << "OUTLIER - std dev y " << std_dev_y << endl;
+      float sum_new_y = 0;
+      
+      // ignore if abs(theta) +- 1.5 std_dev
+      // calculates ranges
+      float small_x = mean_x - (1.5*std_dev_x);
+      float big_x = mean_x + (1.5*std_dev_x);
+      float small_y = mean_y - (1.5*std_dev_y);
+      float big_y = mean_y + (1.5*std_dev_y);
+      
+      // finds new sums without ignored values
+      for (int i = 0; i < data_points; i++) {
+        if ((gps_points[i].x > small_x)&&(gps_points[i].x < big_x)) {
+          sum_new_x += gps_points[i].x;
+        } else {
+          n_x -= 1;
+        }
+        
+        if ((gps_points[i].y > small_y)&&(gps_points[i].y < big_y)) {
+          sum_new_y += gps_points[i].y;
+        } else {
+          n_y -= 1;
+        }
+      }
+      
+      // result
+      mean_new.x = sum_data_x/n_x;
+      mean_new.y = sum_data_y/n_y;
+      cout << "OUTLIER - Averaged (x,y): (" << mean_new.x << "," << mean_new.y << ")" << endl;
+      
     }
-    break;
-
-    default:
-    //only use this to compare x, y, and theta vals - 
-    //should never, ever reach this part
-    break;
+    
   }
 
   return mean_new;
+  
 }

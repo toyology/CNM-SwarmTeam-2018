@@ -9,86 +9,90 @@ bool cnmObstacleAvoided = false;
 
 SearchController::SearchController() {
     rng = new random_numbers::RandomNumberGenerator();
-    searchCounter = .5;
+    searchCounter = 2;
     //searchCounter = 4;
     searchDist = .35;
     //searchDist = 2;
     currentLocation.x = 0;
     currentLocation.y = 0;
     currentLocation.theta = 0;
-    
+
     centerLocation.x = 0;
     centerLocation.y = 0;
     centerLocation.theta = 0;
-    
+
     //Added 3-7-2018, cnmCurrentLocation for averaging
     cnmCurrentLocation.x = 0;
     cnmCurrentLocation.y = 0;
     cnmCurrentLocation.theta = 0;
     result.PIDMode = FAST_PID;
-    
+
     result.fingerAngle = M_PI/2;
     result.wristAngle = M_PI/4;
-    
+
     //Added 3-5-2018
     searchState = OCTAGON;
-    
+
     //Added 3-6-2018
     sectorRadius = 2.5;
-    
+
     //Added 3-6-2018
     squareHeight = 5;
-    
+
     //Added 3-7-2018
     delete rng; //??
-    
+
     //Added 3-10-2018 For obstacle handling
     //cnmObstacleAvoided = false;
     obstacleAvoidanceCount = 0;
     totalObstacleAvoidanceCount = 0;
     hasIncremented = true;
     //cnmObstacleAvoided = false;
-    
+
     //Added 3-10-2018
     searchStep = 0;
 }
 
-void SearchController::Reset() 
+void SearchController::Reset()
 {
     result.reset = false;
 }
-Result SearchController::DoWork() 
+Result SearchController::DoWork()
 {
-    
+
     float doneOneFullRotation = false;
-    
+
     // Print info everytime the search loop is used
     cout << "SEARCH SquareSearchStartPositionler is doing work"  << endl;
-    
+
     //Added 3-7-2018
     //Setup get cnm current location avgerage
     static bool averaged = false;
     averaged = SearchController::CNMCurrentLocationAVG();
-    
+
     if(averaged)
     {
         averaged = false;
         cout << "AVERAGED - Averaged Current location complete" << endl;
     }
-    
+
     //clear intitial waypoints if any
-    if (!result.wpts.waypoints.empty()) 
+    if (!result.wpts.waypoints.empty())
     {                                      //changed from CL to cnmCL 3-7-2018
-        if (hypot(result.wpts.waypoints[0].x-cnmCurrentLocation.x, 
-                  result.wpts.waypoints[0].y-cnmCurrentLocation.y) < 0.10) 
+        if (hypot(result.wpts.waypoints[0].x-cnmCurrentLocation.x,
+                  result.wpts.waypoints[0].y-cnmCurrentLocation.y) < 0.10)
         {
             //attemptCount = 0;
         }
     }
     result.type = waypoint;
+
     Point searchLocation;
     
     //Added 3-10-2018 for obstacle handling
+    
+    //If setting new waypoint and no obstacle has been handled, increment 
+    //loop waypoint normally.
     if(!cnmObstacleAvoided)
     {
         cnmSearchLoop++;
@@ -96,6 +100,7 @@ Result SearchController::DoWork()
     }
     else
     {
+
         //right now, we always want our gather swarmies to 
         //stick with the octagon pattern
         //all other search patterns should switch to random, if 
@@ -109,13 +114,14 @@ Result SearchController::DoWork()
                 if(++totalObstacleAvoidanceCount > 10)
                     searchState = RANDOM;
             }
+
         }
 
     }
-    
-    
-    
-    //find which corner of the square to go 
+
+
+
+    //find which corner of the square to go
     //to first based on 180deg of current heading
     if (first_waypoint)
     {
@@ -123,46 +129,52 @@ Result SearchController::DoWork()
         first_waypoint = false;
         switch(searchState)
         {
-            case SQUARE: 
+            case SQUARE:
             {
-                cnmSearchLoop 
+                cout << "SEARCH - Square search pattern"  << endl;
+                cnmSearchLoop
                 = SearchController::SquareSearchStartPosition();
                 break;
             }
             case OCTAGON:
             {
-                cnmSearchLoop 
+                cout << "SEARCH - Octagon search pattern"  << endl;
+                cnmSearchLoop
                 = SearchController::OctagonSearchStartPosition();
                 break;
             }
             case STAR:
             {
-                cnmSearchLoop 
+                cout << "SEARCH - Star search pattern"  << endl;
+                cnmSearchLoop
                 = SearchController::StarSearchStartPosition();
                 break;
             }
             case SECTOR:
             {
-                cnmSearchLoop 
+                cout << "SEARCH - Sector search pattern"  << endl;
+                cnmSearchLoop
                 = SearchController::SectorSearchStartPosition();
                 break;
             }
             case RANDOM:
             {
+                cout << "SEARCH - Random search pattern"  << endl;
+
                 searchLocation.theta = currentLocation.theta + M_PI;
-                searchLocation.x = currentLocation.x 
+                searchLocation.x = currentLocation.x
                 + (0.5 * cos(searchLocation.theta));
-                searchLocation.y = currentLocation.y 
-                + (0.5 * sin(searchLocation.theta)); 
+                searchLocation.y = currentLocation.y
+                + (0.5 * sin(searchLocation.theta));
             }
         }
     }
-    
+
     switch(searchState)
     {
         case SQUARE:
         {
-            if (cnmSearchLoop < 0 || cnmSearchLoop > 3) 
+            if (cnmSearchLoop < 0 || cnmSearchLoop > 3)
             {
                 cnmSearchLoop = 0;
                 cout << "SEARCH - search loop out of bounds, reset"  << endl;
@@ -171,7 +183,7 @@ Result SearchController::DoWork()
             {
                 cout << "SEARCH - going to first corner of square"  << endl;
                 searchLocation = SetDestination(cnmCurrentLocation,
-                                                currentLocation, 
+                                                currentLocation,
                                                 squareHeight/2,
                                                 squareHeight/2);
                 //cnmSearchLoop = 1;
@@ -180,117 +192,129 @@ Result SearchController::DoWork()
             {
                 cout << "SEARCH - going to second corner of square"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -squareHeight/2,
                                                 squareHeight/2);
                 //cnmSearchLoop = 2;
-                
+
             }
             else if (cnmSearchLoop == 2) //corner in quaderant 3
             {
                 cout << "SEARCH - going to third corner of square"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -squareHeight/2,
                                                 -squareHeight/2);
                 //cnmSearchLoop = 3;
-                
+
             }
             else if (cnmSearchLoop == 3) //corner in quaderant 4
             {
                 cout << "SEARCH - going to forth corner of square"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 +squareHeight/2,
                                                 -squareHeight/2);
                 //cnmSearchLoop = 0;
-                
+
             }
-            
+
             if (searchStep > 2)
             {
+                //Incrementing search distance
                 squareHeight+=searchDist;
+                //Resetting number of obstacles avoided since we incremented
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
-            }  
-            break;  
+                cout << "SEARCH - Incrementing square search distance."  << endl;
+            }
+            break;
         }//END SQUARE CASE
-        
+
         case OCTAGON: //Counter Clockwise Octagon
         {
-            if (cnmSearchLoop < 0 || cnmSearchLoop > 8) 
+            if (cnmSearchLoop < 0 || cnmSearchLoop > 8)
             {
                 cnmSearchLoop = 0;
                 cout << "SEARCH - search loop out of bounds, reset"  << endl;
             }
             if (cnmSearchLoop == 0)
             {
+                cout << "SEARCH - Octagon Point 0"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter/2,
                                                 searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 1)
             {
+              cout << "SEARCH - Octagon Point 1"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -searchCounter/2,
                                                 searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 2)
             {
+              cout << "SEARCH - Octagon Point 2"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -searchCounter,
                                                 searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 3)
             {
+              cout << "SEARCH - Octagon Point 3"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -searchCounter,
                                                 -searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 4)
             {
+              cout << "SEARCH - Octagon Point 4"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -searchCounter/2,
                                                 -searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 5)
             {
+              cout << "SEARCH - Octagon Point 5"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter/2,
                                                 -searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 6)
             {
+              cout << "SEARCH - Octagon Point 6"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter,
                                                 -searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 7)
             {
+              cout << "SEARCH - Octagon Point 7"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter,
                                                 searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 8)
             {
+              cout << "SEARCH - Octagon Point 8"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter/2,
                                                 searchCounter);
                 //cnmSearchLoop++;
@@ -298,13 +322,16 @@ Result SearchController::DoWork()
             }
             if (searchStep > 7)
             {
+                //Incrementing Search Distance
                 searchCounter+=searchDist;
+                //Resetting obstacle avoidance count since we're incrementing
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
-            } 
+                cout << "SEARCH - Incrementing octagon search distance."  << endl;
+            }
             break;
         }//END OCTAGON CASE
-        
+
         case STAR: //6 point star consisting of two triangles
         {
             if (cnmSearchLoop < 0 || cnmSearchLoop > 7)
@@ -314,64 +341,72 @@ Result SearchController::DoWork()
             }
             if (cnmSearchLoop == 0)
             {
+              cout << "SEARCH - Star Point 0"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 0,
                                                 searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 1)
             {
+                cout << "SEARCH - Star Point 1"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter,
                                                 -searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 2)
             {
+                cout << "SEARCH - Star Point 2"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -searchCounter,
                                                 -searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 3)
             {
+                cout << "SEARCH - Star Point 0 2nd visit"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 0,
                                                 searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 4)
             {
+                cout << "SEARCH - Star Point 3"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter,
                                                 searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 5)
             {
+                cout << "SEARCH - Star Point 4"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 0,
                                                 -searchCounter);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 6)
             {
+                cout << "SEARCH - Star Point 5"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -searchCounter,
                                                 searchCounter/2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 7)
             {
+                cout << "SEARCH - Star Point 3 return visit"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 searchCounter,
                                                 searchCounter/2);
                 //cnmSearchLoop++;
@@ -379,91 +414,178 @@ Result SearchController::DoWork()
             }
             if (searchStep > 6)
             {
+                //Search distance incremented
                 searchCounter+=searchDist;
+                //Resetting the number of obstacles avoided since we're 
+                //incrementing
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
-            } 
+                
+                cout << "SEARCH - Incrementing star search distance."  << endl;
+            }
             break;
         }//END STAR CASE
-        
+
+        //Sector search and rotated sector search
         case SECTOR:
         {
-            if (cnmSearchLoop < 0 || cnmSearchLoop > 5)
+            if (cnmSearchLoop < 0 || cnmSearchLoop > 13)
             {
                 cnmSearchLoop = 0;
                 cout << "SEARCH - search loop out of bounds, reset"  << endl;
             }
             if (cnmSearchLoop == 0)
             {
+                cout << "SEARCH - Sector Point 0"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 sectorRadius,
                                                 sectorRadius*2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 1)
             {
+                cout << "SEARCH - Sector Point 1"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -sectorRadius,
                                                 sectorRadius*2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 2)
             {
+                cout << "SEARCH - Sector Point 2"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 sectorRadius,
                                                 -sectorRadius*2);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 3)
             {
+                cout << "SEARCH - Sector Point 3"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 sectorRadius*2,
                                                 0);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 4)
             {
+                cout << "SEARCH - Sector Point 4"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -sectorRadius*2,
                                                 0);
                 //cnmSearchLoop++;
             }
             else if (cnmSearchLoop == 5)
             {
+                cout << "SEARCH - Sector Point 5"  << endl;
                 searchLocation = SetDestination(centerLocation,
-                                                cnmCurrentLocation, 
+                                                cnmCurrentLocation,
                                                 -sectorRadius,
                                                 -sectorRadius*2);
                 //cnmSearchLoop++;
             }
+            else if (cnmSearchLoop == 6)
+            {
+                cout << "SEARCH - Sector Point 6"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                sectorRadius,
+                                                sectorRadius*2);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 7)
+            {
+                cout << "SEARCH - Sector Point 7"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                0,
+                                                sectorRadius*2);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 8)
+            {
+                cout << "SEARCH - Sector Point 8"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                -sectorRadius*1.414,
+                                                sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 9)
+            {
+                cout << "SEARCH - Sector Point 9"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                sectorRadius*1.414,
+                                                -sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 10)
+            {
+                cout << "SEARCH - Sector Point 10"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                sectorRadius*1.414,
+                                                sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 11)
+            {
+                cout << "SEARCH - Sector Point 11"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                -sectorRadius*1.414,
+                                                -sectorRadius);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 12)
+            {
+                cout << "SEARCH - Sector Point 12"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                0,
+                                                -sectorRadius*2);
+                //cnmSearchLoop++;
+            }
+            else if (cnmSearchLoop == 13)
+            {
+                cout << "SEARCH - Sector Point 13"  << endl;
+                searchLocation = SetDestination(centerLocation,
+                                                cnmCurrentLocation,
+                                                0,
+                                                sectorRadius*2);
+                //cnmSearchLoop++;
+            }
             break;
         }//END SECTOR CASE
-        
+
         case RANDOM:
         {
             searchLocation.theta //45 degrees in radians
-            = rng->gaussian(currentLocation.theta, 0.785398); 
-            searchLocation.x 
+            = rng->gaussian(currentLocation.theta, 0.785398);
+            searchLocation.x
             = currentLocation.x + (0.5 * cos(searchLocation.theta));
-            searchLocation.y 
+            searchLocation.y
             = currentLocation.y + (0.5 * sin(searchLocation.theta));
+
+              cout << "SEARCH - Random theta: " << searchLocation.theta << endl;
+
         }//END RANDOM CASE
-    }//END SWITCH 
-    
+    }//END SWITCH
+
     result.wpts.waypoints.clear();
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), searchLocation);
-    
+
     return result;
-    
+
 }
 
 Point SearchController::SetDestination(Point centerLocation,
-                                       Point currentLocation, 
+                                       Point currentLocation,
                                        double xDelta,
                                        double yDelta)
 {
@@ -471,11 +593,11 @@ Point SearchController::SetDestination(Point centerLocation,
     searchLocation.y = centerLocation.y + yDelta;
     searchLocation.theta = atan2((searchLocation.y - currentLocation.y),
                                  (searchLocation.x - currentLocation.x));
-                                 
-    //Added 3-10-2018 Succseful setting of new wayppoint
+
+    //Added 3-10-2018 Sucsessful setting of new wayppoint
     //means obstacle can be reset.
-    cnmObstacleAvoided = false;  
-    return searchLocation;  
+    cnmObstacleAvoided = false;
+    return searchLocation;
 }
 
 //Added 3-10-18 For Obstacle Avoidance Tracking
@@ -490,22 +612,23 @@ void SearchController::cnmSetCenterLocation(Point newLocation)
     cnmCenterLocation = newLocation;
 }
 
-void SearchController::SetCenterLocation(Point centerLocation) 
+void SearchController::SetCenterLocation(Point centerLocation)
 {
     
     float diffX = this->cnmCenterLocation.x - centerLocation.x;
     float diffY = this->cnmCenterLocation.y - centerLocation.y;
     this->cnmCenterLocation = centerLocation;
     
+
     if (!result.wpts.waypoints.empty())
     {
         result.wpts.waypoints.back().x -= diffX;
         result.wpts.waypoints.back().y -= diffY;
     }
-    
+
 }
 
-void SearchController::SetCurrentLocation(Point currentLocation) 
+void SearchController::SetCurrentLocation(Point currentLocation)
 {
     this->currentLocation = currentLocation;
 }
@@ -542,16 +665,16 @@ void SearchController::ProcessData()
 bool SearchController::ShouldInterrupt()
 {
     ProcessData();
-    
+
     return false;
 }
 
-bool SearchController::HasWork() 
+bool SearchController::HasWork()
 {
     return true;
 }
 
-void SearchController::SetSuccesfullPickup() 
+void SearchController::SetSuccesfullPickup()
 {
     succesfullPickup = true;
 }
@@ -562,6 +685,7 @@ int SearchController::SquareSearchStartPosition()
     int searchLoop =0;
     
     if (cnmCurrentLocation.theta + M_PI <= angles::from_degrees(80))
+
     {
         searchLoop = 0;
     }
@@ -577,7 +701,7 @@ int SearchController::SquareSearchStartPosition()
     {
         searchLoop = 3;
     }
-    
+
     return searchLoop;
 }
 
@@ -588,6 +712,7 @@ int SearchController::OctagonSearchStartPosition()
     int searchLoop = 0;
     
     if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
+
     {
         searchLoop = 7;
     }
@@ -619,7 +744,7 @@ int SearchController::OctagonSearchStartPosition()
     {
         searchLoop = 6;
     }
-    
+
     return searchLoop;
 }
 
@@ -645,7 +770,7 @@ int SearchController::StarSearchStartPosition()
     {
         searchLoop = 1;
     }
-    
+
     return searchLoop;
 }
 
@@ -655,6 +780,7 @@ int SearchController::SectorSearchStartPosition()
     int searchLoop = 0;
     
     if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
+
     {
         searchLoop = 3;
     }
@@ -682,10 +808,10 @@ int SearchController::SectorSearchStartPosition()
     {
         searchLoop = 3;
     }
-    
+
     return searchLoop;
 }
-    
+
 //Added 3-7-2018
 void SearchController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
 {
@@ -695,48 +821,37 @@ void SearchController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
 //Added 3-7-2018
 bool SearchController::CNMCurrentLocationAVG()
 {
-
     const int CASIZE = 30;
 
     float avgCurrentCoordsX[CASIZE];
     float avgCurrentCoordsY[CASIZE];
 
-    static int index = 0;
+    int index = 0;
 
-    if(index < CASIZE)
+    while(index < CASIZE)
     {
 
   	    avgCurrentCoordsX[index] = currentLocation.x;
       	avgCurrentCoordsY[index] = currentLocation.y;
 
-  	    index++;
 
-  	    return false;
+        cout << "AVGCL - X: " << avgCurrentCoordsX[index]<< 
+                "   Y: " << avgCurrentCoordsY[index] << endl;
+        index++;
     }
-    else
+
+    float x = 0, y = 0;
+    for(int i = 0; i < CASIZE; i++)
     {
-      	float x = 0, y = 0;
-      	
-      	for(int i = 0; i < CASIZE; i++)
-      	{
-      	    x += avgCurrentCoordsX[i];
-      	    y += avgCurrentCoordsY[i];
-      	}
-
-      	x = x/CASIZE;
-      	y = y/CASIZE;
-
-        Point cnmAVGCurrentLocation;
-      	cnmAVGCurrentLocation.x = x;
-      	cnmAVGCurrentLocation.y = y;
-        cnmAVGCurrentLocation.theta = currentLocation.theta;
-
-        SearchController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
-
-      	index = 0;
-      	return true;
+       x += avgCurrentCoordsX[i];
+       y += avgCurrentCoordsY[i];
     }
-}
+    
+    Point cnmAVGCurrentLocation;
+    cnmAVGCurrentLocation.x = x/CASIZE;
+    cnmAVGCurrentLocation.y = y/CASIZE;
+    cnmAVGCurrentLocation.theta = currentLocation.theta;
+
 
 bool SearchController::updateSearch(){
     //first, check if stash is empty
@@ -818,3 +933,4 @@ void SearchController::clearStash()
     stashLoop = 0;
     stashCounter = 0;
 }
+

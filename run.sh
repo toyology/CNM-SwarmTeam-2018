@@ -17,6 +17,8 @@ echo Killing rosmaster
 pkill rosmaster
 echo Killing roscore
 pkill roscore
+source devel/setup.bash &
+rosmake swarmie_msgs &
 roscore &
 sleep 2
 rqt -s rqt_rover_gui

@@ -54,7 +54,7 @@ public:
   
   //Added 3-5-2018
   //Creating point to move to
-  Point SetDestination(Point centerLocation,
+  Point SetDestination(Point newCenterLocation,
                        Point currentLocation, 
                        double xDelta,
                        double yDelta);

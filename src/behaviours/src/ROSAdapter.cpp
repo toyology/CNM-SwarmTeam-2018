@@ -216,7 +216,8 @@ int switchSwarmie = 0;
 bool roleReady = true;
 bool gpsAverageSent = false;
 int gpsCount = 0;
-int update = 1;
+int searchStart = 0;
+int update = 0;
 enum class Role{
     //teamsize == 3
     gather1, //searches close to center, gathers drop offs from searchers, helps searchers
@@ -237,6 +238,7 @@ vector<ros::Publisher> comms;
 int myID;
 //set this to something big initially so we don't update tasks every timer tick
 float taskTime = 100;
+float nextTask = 100;
 ros::NodeHandle *cnm_NH;
 
 swarmie_msgs::Waypoint wmsg;
@@ -425,7 +427,7 @@ if(timerTimeElapsed > fireTimer && !gpsAveraged)
   {
     coord[indexTest].x = currentLocationMap.x + (1.3 * cos(currentLocation.theta));
     coord[indexTest].y = currentLocationMap.y + (1.3 * sin(currentLocation.theta));
-    cout << "OUTLIER - current time is "<< fireTimer <<", reading gps pt # " << indexTest <<": " << coord[indexTest].x << ", " << coord[indexTest].y << endl;
+    //cout << "OUTLIER - current time is "<< fireTimer <<", reading gps pt # " << indexTest <<": " << coord[indexTest].x << ", " << coord[indexTest].y << endl;
     coord[indexTest].theta = currentLocationMap.theta;
     indexTest++;
   }  
@@ -455,15 +457,15 @@ if (timerTimeElapsed > 33)
 //the time that they were working 
 //also, this is almost a minute after boot, but any earlier and we can't 
 //guarantee the efficacy of our role call messages
-if(gpsAveraged && !mapBuilt)
+if(gpsAveraged && !mapBuilt && timerTimeElapsed > 40)
 {
-  if(timerTimeElapsed > 65 && roleReady)
+  mapBuilt = true;
+  buildMap();
+  if(roleReady)
   {
     roleReady = false;
     assignSwarmieRoles(timerTimeElapsed);
   }
-  mapBuilt = true;
-  buildMap();
 }
 
 /*
@@ -477,13 +479,16 @@ if(timerTimeElapsed > 53 && publishedName == "artemis" && firstUpdate)
 
 //at each taskTime elapsed (timerTimeElapsed is in seconds), 
 //update our roles
-if((timerTimeElapsed/60) >= taskTime){
+//TODO AJH update this timer to actually fucking work, please
+/*
+if((timerTimeElapsed/60) >= nextTask){
   updateBehavior(timerTimeElapsed, update);
+  cout << " MAPPING - updating our behavior at time " << timerTimeElapsed << endl;
   //set our next task timer deadline
-  taskTime += taskTime;
+  nextTask += taskTime;
   update++;
 }
-
+*/
 
 /*if (sortTrigger1 == false)
 {
@@ -731,6 +736,8 @@ void targetHandler(const apriltags_ros::AprilTagDetectionArray::ConstPtr& messag
     if (hypot(currentLocationMap.x-centerLocationMap.x, currentLocationMap.y-centerLocationMap.y) < 0.750){
       //if we're not at home, check if we're seeing more than three resources 
       if(tags.size()>3 && message->detections[0].id == 0){
+        //giv ourselves another minute on our task timer
+        nextTask += 1;
         //0 == resource message within the handler MyMessageHandler
         my_msg.action = 0;
         //set position x & y vals to our current location (where we see resources)
@@ -1424,19 +1431,28 @@ void assignSwarmieRoles(int currentTime){
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
-        if(numSwarmies > 4)
+        if(numSwarmies < 4)
         {
           static const int myBigArray3[8] = {1,0,5,10,15,20,21,22};
           myAreasBig = &myBigArray3[0];
-          taskTime = 3.50;
-          logicController.changeAreas(mapAreas[myAreasBig[0]], 2.2);
+          taskTime = 1.75;
+          //logicController.changeAreas(mapAreas[myAreasBig[0]],  0.75);//1.5);
+          //logicController.changeAreas(mapAreas[searchStart],  1.5);
+          logicController.startGather(1.0, 1.0, mapAreas[searchStart]); 
+          cout << "MAPPING - current search's center location: " <<  mapAreas[searchStart].x << ", " << mapAreas[searchStart].y << endl;
+
         }
         else
         {
           static const int mySmallArray1[4] = {1,0,5,10};
           myAreasSmall = &mySmallArray1[0];
-          taskTime = 1.75;
-          logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.5);
+          taskTime = 3.50;
+          //logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.1);//2.2);
+          //logicController.changeAreas(mapAreas[searchStart], 2.2);
+          logicController.startGather(1.0, 1.0, mapAreas[searchStart]); 
+
+          cout << "MAPPING - current search's center location: " <<  mapAreas[searchStart].x << ", " << mapAreas[searchStart].y << endl;
+
         }
 
         break;
@@ -1446,19 +1462,27 @@ void assignSwarmieRoles(int currentTime){
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
-        if(numSwarmies > 4)
+        if(numSwarmies < 4)
         {
           static const int myBigArray4[8] = {2,3,4,9,14,19,24,23};
           myAreasBig = &myBigArray4[0];
-          logicController.changeAreas(mapAreas[myAreasBig[0]], 2.2);
-          taskTime = 3.50;
+          //logicController.changeAreas(mapAreas[myAreasBig[0]], 0.75);//1.5);
+          //logicController.changeAreas(mapAreas[searchStart], 1.5);
+          logicController.startGather(1.0, 1.0, mapAreas[searchStart]);
+          taskTime = 1.75;
+          cout << "MAPPING - current search's center location: " <<  mapAreas[searchStart].x << ", " << mapAreas[searchStart].y << endl;
+
         }
         else
         {
           static const int mySmallArray2[4] = {2,3,4,9};
           myAreasSmall = &mySmallArray2[0];
-          taskTime = 1.75;
-          logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.5);
+          taskTime = 3.50;
+          //logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.1);//2.2);
+          //logicController.changeAreas(mapAreas[searchStart], 2.2);
+          logicController.startGather(1.0, 1.0, mapAreas[searchStart]);
+          cout << "MAPPING - current search's center location: " <<  mapAreas[searchStart].x << ", " << mapAreas[searchStart].y << endl;
+
         }
 
         break;
@@ -1469,7 +1493,11 @@ void assignSwarmieRoles(int currentTime){
         static const int mySmallArray3[4] = {15,20,21,22};
         myAreasSmall = &mySmallArray3[0];
         taskTime = 3.50;
-        logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
+        //logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.1);//2.2);
+        //logicController.changeAreas(mapAreas[searchStart], 2.2);
+        logicController.startGather(1.0, 1.0, mapAreas[searchStart]);
+        cout << "MAPPING - current search's center location: " <<  mapAreas[searchStart].x << ", " << mapAreas[searchStart].y << endl;
+
 
         break;
       case 5://searcher4
@@ -1479,7 +1507,10 @@ void assignSwarmieRoles(int currentTime){
         static const int mySmallArray4[4] = {14,19,24,23};
         myAreasSmall = &mySmallArray4[0];
         taskTime = 3.50;
-        logicController.changeAreas(mapAreas[myAreasSmall[0]], 2.2);
+        //logicController.changeAreas(mapAreas[myAreasSmall[0]], 1.1);//2.2);
+        //logicController.changeAreas(mapAreas[searchStart], 2.2);
+        logicController.startGather(1.0, 1.0, mapAreas[searchStart]);
+        cout << "MAPPING - current search's center location: " <<  mapAreas[searchStart].x << ", " << mapAreas[searchStart].y << endl;
 
         break;
       default:
@@ -1488,6 +1519,9 @@ void assignSwarmieRoles(int currentTime){
         //swarmie > 6 defaults to search?
         break;
     }
+    nextTask = 0;
+    nextTask = taskTime+(currentTime/60);
+    cout << "MAPPING - starting search, next task schedule for " << nextTask << endl;
     return;
 }
 
@@ -1495,7 +1529,7 @@ void updateBehavior(int currentTime, int update){
     //update behavior roles for searchers and hybrids,
     //update gatherer behavior as necessary (if timer > 15 minutes-startTime)
     //AJH TODO: timer needs to be in seconds, because that is what we are passing it
-    msg.data = ("Updating role - the current time is: " + currentTime);
+    msg.data = ("MAPPING - Updating role - the current time is: " + currentTime);
     infoLogPublisher.publish(msg);
     Point next;
     switch(myRole){
@@ -1509,19 +1543,22 @@ void updateBehavior(int currentTime, int update){
       //see map on slack 
       case Role::searcher1:
       case Role::searcher2:
-        if(swarmieNames.size()>4){
-          next = mapAreas[myAreasSmall[update]];
-          logicController.changeAreas(next, 1.5);
+        if(swarmieNames.size()<4){
+          next = mapAreas[myAreasBig[update]];
+          cout << "MAPPING - changing to new point " << next.x << ", " << next.y << endl;
+          logicController.changeAreas(next, 0.75);//1.5);
         }
         else{
-          next = mapAreas[myAreasBig[update]];
-          logicController.changeAreas(next, 2.2);
+          next = mapAreas[myAreasSmall[update]];
+          cout << "MAPPING - changing to new point " << next.x << ", " << next.y << endl;
+          logicController.changeAreas(next, 1.1);//2.2);
         }
         break;
       case Role::searcher3:
       case Role::searcher4:
         next = mapAreas[myAreasSmall[update]];
-        logicController.changeAreas(next, 2.2);
+        cout << "MAPPING - changing to new point " << next.x << ", " << next.y << endl;
+        logicController.changeAreas(next, 1.1);//2.2);
         break;
       //hybrids will search areas and be on call for other swarmies' resource calls.
       //they search a smaller subset of areas than regular searchers receive
@@ -1552,6 +1589,42 @@ void testStuff(){
 
 void buildMap()
 {
+  //find our closest corner
+  //in our map using searchStart as the index within our gridpoint array
+  if (currentLocation.theta + M_PI <= angles::from_degrees(20) && currentLocation.theta + M_PI > angles::from_degrees(320))
+  {
+      searchStart = 14;
+  }
+  else if (currentLocation.theta  + M_PI  <= angles::from_degrees(50))
+  {
+      searchStart = 4;
+  }
+  else if (currentLocation.theta  + M_PI  <= angles::from_degrees(110))
+  {
+      searchStart = 2;
+  }
+  else if (currentLocation.theta  + M_PI <= angles::from_degrees(140))
+  {
+      searchStart = 0;
+  }
+    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(200))
+  {
+      searchStart = 10;
+  }
+  else if (currentLocation.theta  + M_PI  <= angles::from_degrees(230))
+  {
+      searchStart = 20;
+  }
+  else if (currentLocation.theta  + M_PI <= angles::from_degrees(290))
+  {
+      searchStart = 22;
+  }
+  else if (currentLocation.theta  + M_PI <= angles::from_degrees(320))
+  {
+      searchStart = 24;
+  }
+  cout << "MAPPING - search start is "<< searchStart << endl;
+  
   //offset depends on swarmie team size
   double y_offset = 0;
   double y_start = 0;
@@ -1579,18 +1652,19 @@ void buildMap()
     temp.y = cnmCenterLocation.y + y_start;
     //decrement y offset in our outer loop each time we fire 
     //reset our x_offset each time we loop through
-    y_start = y_start - y_offset;
     int x = x_start;
     for(int k = 0; k < 5; k++){
       //TODO AJH centerLocation, or centerLocationMap?
       temp.x = cnmCenterLocation.x + x;
       temp.theta = atan(temp.y/temp.x);
       int index = i*5 + k;
+      cout << "MAPPING - gridpoint # "<< index <<" is " << temp.x << ", " << temp.y << endl;
       mapAreas[index] = temp;
       //increment x value each time we go through inner loop
       //& outer loop will reset value each time this loop finishes
       x += x_offset;
     }
+    y_start = y_start - y_offset;
   }
 }
 

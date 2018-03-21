@@ -20,6 +20,10 @@ SearchController::SearchController() {
     centerLocation.x = 0;
     centerLocation.y = 0;
     centerLocation.theta = 0;
+
+    cnmCenterLocation.x = 0;
+    cnmCenterLocation.y = 0;
+    cnmCenterLocation.theta = 0;
     
     //Added 3-7-2018, cnmCurrentLocation for averaging
     cnmCurrentLocation.x = 0;
@@ -100,12 +104,13 @@ Result SearchController::DoWork()
         //stick with the octagon pattern
         //all other search patterns should switch to random, if 
         //they encounter enough obstacles
-        if(!searchState == OCTAGON){
-            if(++obstacleAvoidanceCount > 3)
-            {
-                cnmSearchLoop++;
-                searchStep++;
-                obstacleAvoidanceCount = 0;
+        
+        if(++obstacleAvoidanceCount > 3)
+        {
+            cnmSearchLoop++;
+            searchStep++;
+            obstacleAvoidanceCount = 0;
+            if(searchState != OCTAGON){
                 if(++totalObstacleAvoidanceCount > 10)
                     searchState = RANDOM;
             }
@@ -462,16 +467,17 @@ Result SearchController::DoWork()
     
 }
 
-Point SearchController::SetDestination(Point centerLocation,
+Point SearchController::SetDestination(Point newCenterLocation,
                                        Point currentLocation, 
                                        double xDelta,
                                        double yDelta)
 {
-    searchLocation.x = centerLocation.x + xDelta;
-    searchLocation.y = centerLocation.y + yDelta;
+    searchLocation.x = newCenterLocation.x + xDelta;
+    searchLocation.y = newCenterLocation.y + yDelta;
     searchLocation.theta = atan2((searchLocation.y - currentLocation.y),
                                  (searchLocation.x - currentLocation.x));
                                  
+    cout << "MAPPING - searchController's destination location: " <<searchLocation.x << ", " << searchLocation.y << endl;
     //Added 3-10-2018 Succseful setting of new wayppoint
     //means obstacle can be reset.
     cnmObstacleAvoided = false;  
@@ -689,6 +695,7 @@ int SearchController::SectorSearchStartPosition()
 //Added 3-7-2018
 void SearchController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
 {
+    currentLocation = cnmAVGCurrentLocation;
     cnmCurrentLocation = cnmAVGCurrentLocation;
 }
 
@@ -760,20 +767,27 @@ bool SearchController::updateSearch(){
 void SearchController::setStartingPoint(Point p, double radius){
     //set our initial starting point for a search area
     //first, tell our search controller that this is the first waypoint
-    first_waypoint = true;
+    
+    //first_waypoint = true;
     //then, clear our current results.waypoints vector
+    
     result.wpts.waypoints.clear();
     //then, add our grid area's center point to our waypoints list  
+    
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
     //reset our search state to a wagon wheel? yes?
     //although ideally we would be able to switch among different types of search pattern, 
     //right now our options are to switch between one & random
-
-    searchState = SearchState::SECTOR;
-    SetSectorRadius(radius);
+    centerLocation = p;
+    SetCenterLocation(p);
     cnmSetCenterLocation(p);
-    cnmSearchLoop = 0;
-    searchCounter = radius;
+    searchState = SearchState::SECTOR;
+    SetSectorRadius(radius/2);
+    //cnmSetCenterLocation(p);
+    //searchCounter = radius;
+    //cnmSearchLoop = SectorSearchStartPosition();
+    cout << "MAPPING - centerLocation in setStartingPt: " << p.x << ", " << p.y << endl;
+
 }
 
 //overloaded method for our gather swarmies
@@ -781,7 +795,7 @@ void SearchController::setStartingPoint(double offsetStart, double increment, Po
 {
     //set our initial starting point for a search area
     //first, tell our search controller that this is the first waypoint
-    first_waypoint = true;
+    //first_waypoint = true;
     //then, clear our current results.waypoints vector
     result.wpts.waypoints.clear();
     //then, add our grid area's center point to our waypoints list  
@@ -793,6 +807,10 @@ void SearchController::setStartingPoint(double offsetStart, double increment, Po
     searchState = SearchState::OCTAGON;
     searchDist = increment;
     //should be center of map
+    //cnmSetCenterLocation(p);
+    //cnmCenterLocation = p;
+    centerLocation = p;
+    SetCenterLocation(p);
     cnmSetCenterLocation(p);
     cnmSearchLoop = OctagonSearchStartPosition();
     searchCounter = offsetStart;

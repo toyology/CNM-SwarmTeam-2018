@@ -67,7 +67,7 @@ void ObstacleController::avoidCollectionZone() {
     }
 
     result.pd.setPointVel = 0.0;
-    result.pd.cmdVel = 0.0;
+    result.pd.cmdVel = -0.1;
     result.pd.setPointYaw = 0;
 }
 
@@ -97,6 +97,7 @@ Result ObstacleController::DoWork() {
     result.type = waypoint;
     result.PIDMode = FAST_PID; //use fast pid for waypoints
     Point forward;            //waypoint is directly ahead of current heading
+
     //Added 3-15-2018 to modify obstacle turning
     forward.theta = currentLocation.theta;// + (M_PI/6);
     //forward.x = currentLocation.x + (1.0 * cos(currentLocation.theta));
@@ -105,6 +106,7 @@ Result ObstacleController::DoWork() {
     //tells swarmie to head forward 2m once no obstacle is detected.
     forward.x = currentLocation.x + (2.0 * cos(forward.theta));
     forward.y = currentLocation.y + (2.0 * sin(forward.theta));
+
     result.wpts.waypoints.clear();
     result.wpts.waypoints.push_back(forward);
     cout << "OBSTACLE - detected obstacle setting new waypoint"  << endl;

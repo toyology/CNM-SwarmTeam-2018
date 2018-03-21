@@ -2,17 +2,20 @@
 #This script has been added to aid in rapid development and deployment of multiple robots!
 
 
+
 #-------------------------READ THIS----------------------------#
 #If you have changed your rovers password you MUST edit this variable with the correct password to
 #allow the reboot feature to work correctly!!
-roverPass="KSC-2018"
+roverPass="swarm2018"
 #--------------------------------------------------------------#
+
 
 OPTION=$1
 branch=$2
 roverIP=""
 branch=""
 needsReboot=false
+calFile=""
 
 cd ..
 dirPath="$(pwd)"
@@ -47,6 +50,8 @@ PullGit_Pack()
 			{
 				echo 'Compiling $dirName branch $branch...';
 				catkin build &&
+				source devel/setup.bash &
+				rosmake swarmie_msgs &
 				{
 					cd -;
 					echo 'Packing up the repository... ';
@@ -72,6 +77,8 @@ Pack()
 		{
 			echo 'Compiling $dirName';
 			catkin build &&
+			source devel/setup.bash &
+			rosmake swarmie_msgs &
 			{
 				cd ~;
 				echo 'Packing up the repository... ';
@@ -101,7 +108,7 @@ Unpack_Run()
 		echo 'Starting ROS nodes on swarmie at $roverIP with master at $hostName';
 		sleep 2;
 		cd $dirName/misc/;
-		./rover_onboard_node_launch.sh $hostName;
+                ./rover_onboard_node_launch.sh $hostName $calFile;
 		exit 1;
 		/bin/bash;' exec $SHELL"
 
@@ -115,7 +122,7 @@ Run()
 	gnome-terminal --tab -x bash -c "echo -n -e '\033]0;$roverIP\007';
 		ssh -t swarmie@$roverIP 'echo 'Running $roverIP';
     cd $dirName/misc;
-		./rover_onboard_node_launch.sh $hostName;
+		./rover_onboard_node_launch.sh $hostName $calFile;
 		exit 1;
 		exit 1;
 		/bin/bash;' exec $SHELL"
@@ -167,7 +174,7 @@ Reboot()
 {
 	info="Rebooting $roverIP and Reconnecting..."
 	echo "$info"
-	ssh -t swarmie@$roverIP "echo $roverPass | sudo -S reboot now; exit 1;"
+  ssh -t swarmie@$roverIP "sudo reboot now; exit 1;"
 	sleep 5
 	{
 		while(true); do
@@ -227,8 +234,8 @@ if [ "$2" == "-S" ]; then
 
         PullGit_Pack &
         wait
-
-        while [ "${!i}" != "" ]; do
+        calFile=${@: -1}
+        while [ $i != $# ]; do
             roverIP=${!i}
             roverIP=${roverIP^^}
 
@@ -269,8 +276,9 @@ if [ "$2" == "-S" ]; then
 
         Pack &
         wait
-
-        while [ "${!i}" != "" ]; do
+	calFile=${@: -1}
+        echo $calFile
+        while [ $i != $# ]; do
             roverIP=${!i}
             roverIP=${roverIP^^}
 
@@ -316,9 +324,8 @@ if [ "$2" == "-S" ]; then
         done
 
     elif [ $OPTION == "-R" ]; then
-
-        while [ "${!i}" != "" ]; do
-
+	calFile=${@: -1}
+        while [ $i != $# ]; do
             roverIP=${!i}
             roverIP=${roverIP^^}
 
@@ -383,7 +390,7 @@ elif [ $OPTION == "-G" ]; then
 
 	PullGit_Pack &
 	wait
-
+        read -p "Calibration File Name:  " calFile
 	while(true); do
 
 	i=0
@@ -491,7 +498,7 @@ elif [ $OPTION == "-L" ]; then
 
 	Pack &
 	wait
-
+        read -p "Calibration File Name:  " calFile
 	while(true); do
 
 	i=0
@@ -592,6 +599,7 @@ elif [ $OPTION == "-R" ]; then
 	echo "Running current swarmie(s) code"
 	echo "-------------------------------------------------------------"
 
+	read -p "Calibration File Name:  " calFile
 	while(true); do
 
 	i=0
@@ -602,6 +610,7 @@ elif [ $OPTION == "-R" ]; then
                 read -p "Option/Rover Name(s):  " -a arr
 
                 size=${#arr[@]}
+
 
 		while [ $i -lt $size ]; do
 

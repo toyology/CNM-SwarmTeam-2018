@@ -160,9 +160,9 @@ Result SearchController::DoWork()
 
                 searchLocation.theta = currentLocation.theta + M_PI;
                 searchLocation.x = currentLocation.x
-                + (0.5 * cos(searchLocation.theta));
+                + (4 * cos(searchLocation.theta));
                 searchLocation.y = currentLocation.y
-                + (0.5 * sin(searchLocation.theta));
+                + (4 * sin(searchLocation.theta));
             }
         }
     }
@@ -565,9 +565,9 @@ Result SearchController::DoWork()
             searchLocation.theta //45 degrees in radians
             = rng->gaussian(currentLocation.theta, 0.785398);
             searchLocation.x
-            = currentLocation.x + (0.5 * cos(searchLocation.theta));
+            = currentLocation.x + (3 * cos(searchLocation.theta));
             searchLocation.y
-            = currentLocation.y + (0.5 * sin(searchLocation.theta));
+            = currentLocation.y + (3 * sin(searchLocation.theta));
 
               cout << "SEARCH - Random theta: " << searchLocation.theta << endl;
 

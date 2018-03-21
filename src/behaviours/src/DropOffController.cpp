@@ -60,7 +60,7 @@ DropOffController::~DropOffController() {
 Result DropOffController::DoWork() {
 
 
-  cout << "DROPOFF - Do work!" << endl;
+  //cout << "DROPOFF - Do work!" << endl;
 
 
   //cout << "8" << endl; //Debugging statement
@@ -93,7 +93,7 @@ Result DropOffController::DoWork() {
         return result;
       }
       else
-      { cout << "DROPOFF - reverse timer started" << endl;
+      { //cout << "DROPOFF - reverse timer started" << endl;
         finalInterrupt = true;
         //cout << "1" << endl; //Debugging statement
       }
@@ -102,7 +102,7 @@ Result DropOffController::DoWork() {
     {
       isPrecisionDriving = true;
       result.type = precisionDriving;
-      cout << "DROPOFF - opening fingers now" << endl;
+      cout << "DROPOFF - opening fingers meow!" << endl;
       result.fingerAngle = M_PI_2; //open fingers
       result.wristAngle = 0; //raise wrist
 
@@ -191,7 +191,7 @@ Result DropOffController::DoWork() {
 
     if(!CNMCentered )
     {
-      cout << "switched to precisionDriving and for centering" << endl;
+      cout << "DROPOFF - Switched to precisionDriving and for centering" << endl;
       result.type = precisionDriving;
       result.PIDMode = SLOW_PID;
       cnmCenteringNow = true;
@@ -216,7 +216,7 @@ Result DropOffController::DoWork() {
 
       if(cnmDropoffTimerElapsed >= cnmDropoffTimer && dropTimerStatered && !readyToDrop)
       {
-        cout << "DROPOFF - dropoff timer: " << cnmDropoffTimerElapsed << endl;
+        //cout << "DROPOFF - dropoff timer: " << cnmDropoffTimerElapsed << endl;
         cout << "DROPOFF - Dropoff Drive Timer complete stop here and drop" << endl;
         result.pd.cmdVel = 0.00;
         result.pd.cmdAngularError  = 0.0;
@@ -231,51 +231,10 @@ Result DropOffController::DoWork() {
         //DropOffController::finalAdjustmentBeforeDrop();
       }
     }
-
-/*
-    if (seenEnoughCenterTags) //if we have seen enough tags
-    {
-      if ((countLeft-5) > countRight) //and there are too many on the left
-      {
-        right = false; //then we say none on the right to cause us to turn right
-      }
-      else if ((countRight-5) > countLeft)
-      {
-        left = false; //or left in this case
-      }
-    }
-
-    float turnDirection = 1;
-    //reverse tag rejection when we have seen enough tags that we are on a
-    //trajectory in to the square we dont want to follow an edge.
-    if (seenEnoughCenterTags) turnDirection = -3;
-
-    result.type = precisionDriving;
-
-    //otherwise turn till tags on both sides of image then drive straight
-    if (left && right) {
-      result.pd.cmdVel = searchVelocity;
-      result.pd.cmdAngularError = 0.0;
-    }
-    else if (right) {
-      result.pd.cmdVel = -0.1 * turnDirection;
-      result.pd.cmdAngularError = -centeringTurnRate*turnDirection;
-    }
-    else if (left){
-      result.pd.cmdVel = -0.1 * turnDirection;
-      result.pd.cmdAngularError = centeringTurnRate*turnDirection;
-    }
-    else
-    {
-      result.pd.cmdVel = searchVelocity;
-      result.pd.cmdAngularError = 0.0;
-    }
-
-    */
     if (cnmCenteringNow)
     {
 
-    cout << "DROPOFF - cnmCenteringNow called" << endl;
+    //cout << "DROPOFF - cnmCenteringNow called" << endl;
 
     float linearSpeed, angularSpeed;
 
@@ -340,7 +299,7 @@ Result DropOffController::DoWork() {
         else
         {
           cout << "DROPOFF - Centering -set drive speed" << endl;
-          if(isDroppingOff) { linearSpeed = 0.25; }
+          if(isDroppingOff) { linearSpeed = 0.15; } // was 0.25
           else { linearSpeed = 0.15; }
 
           angularSpeed = 0.0;

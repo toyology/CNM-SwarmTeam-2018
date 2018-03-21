@@ -88,10 +88,10 @@ Result SearchController::DoWork()
     result.type = waypoint;
 
     Point searchLocation;
-    
+
     //Added 3-10-2018 for obstacle handling
-    
-    //If setting new waypoint and no obstacle has been handled, increment 
+
+    //If setting new waypoint and no obstacle has been handled, increment
     //loop waypoint normally.
     if(!cnmObstacleAvoided)
     {
@@ -101,9 +101,9 @@ Result SearchController::DoWork()
     else
     {
 
-        //right now, we always want our gather swarmies to 
+        //right now, we always want our gather swarmies to
         //stick with the octagon pattern
-        //all other search patterns should switch to random, if 
+        //all other search patterns should switch to random, if
         //they encounter enough obstacles
         if(!searchState == OCTAGON){
             if(++obstacleAvoidanceCount > 3)
@@ -416,11 +416,11 @@ Result SearchController::DoWork()
             {
                 //Search distance incremented
                 searchCounter+=searchDist;
-                //Resetting the number of obstacles avoided since we're 
+                //Resetting the number of obstacles avoided since we're
                 //incrementing
                 totalObstacleAvoidanceCount = 0;
                 searchStep = 0;
-                
+
                 cout << "SEARCH - Incrementing star search distance."  << endl;
             }
             break;
@@ -614,11 +614,11 @@ void SearchController::cnmSetCenterLocation(Point newLocation)
 
 void SearchController::SetCenterLocation(Point centerLocation)
 {
-    
+
     float diffX = this->cnmCenterLocation.x - centerLocation.x;
     float diffY = this->cnmCenterLocation.y - centerLocation.y;
     this->cnmCenterLocation = centerLocation;
-    
+
 
     if (!result.wpts.waypoints.empty())
     {
@@ -657,7 +657,7 @@ void SearchController::SetSearchCounter(double searchCounter)
     this->searchCounter = searchCounter;
 }
 
-void SearchController::ProcessData() 
+void SearchController::ProcessData()
 {
     //AJH do something here????
 }
@@ -683,7 +683,7 @@ void SearchController::SetSuccesfullPickup()
 int SearchController::SquareSearchStartPosition()
 {
     int searchLoop =0;
-    
+
     if (cnmCurrentLocation.theta + M_PI <= angles::from_degrees(80))
 
     {
@@ -710,7 +710,7 @@ int SearchController::SquareSearchStartPosition()
 int SearchController::OctagonSearchStartPosition()
 {
     int searchLoop = 0;
-    
+
     if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
 
     {
@@ -753,7 +753,7 @@ int SearchController::OctagonSearchStartPosition()
 int SearchController::StarSearchStartPosition()
 {
     int searchLoop = 0;
-    
+
     if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 1;
@@ -778,7 +778,7 @@ int SearchController::StarSearchStartPosition()
 int SearchController::SectorSearchStartPosition()
 {
     int searchLoop = 0;
-    
+
     if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
 
     {
@@ -835,7 +835,7 @@ bool SearchController::CNMCurrentLocationAVG()
       	avgCurrentCoordsY[index] = currentLocation.y;
 
 
-        cout << "AVGCL - X: " << avgCurrentCoordsX[index]<< 
+        cout << "AVGCL - X: " << avgCurrentCoordsX[index]<<
                 "   Y: " << avgCurrentCoordsY[index] << endl;
         index++;
     }
@@ -846,13 +846,12 @@ bool SearchController::CNMCurrentLocationAVG()
        x += avgCurrentCoordsX[i];
        y += avgCurrentCoordsY[i];
     }
-    
+
     Point cnmAVGCurrentLocation;
     cnmAVGCurrentLocation.x = x/CASIZE;
     cnmAVGCurrentLocation.y = y/CASIZE;
     cnmAVGCurrentLocation.theta = currentLocation.theta;
-
-
+  }
 bool SearchController::updateSearch(){
     //first, check if stash is empty
     //if it is not, return to our previous search state, if possible
@@ -878,10 +877,10 @@ void SearchController::setStartingPoint(Point p, double radius){
     first_waypoint = true;
     //then, clear our current results.waypoints vector
     result.wpts.waypoints.clear();
-    //then, add our grid area's center point to our waypoints list  
+    //then, add our grid area's center point to our waypoints list
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
     //reset our search state to a wagon wheel? yes?
-    //although ideally we would be able to switch among different types of search pattern, 
+    //although ideally we would be able to switch among different types of search pattern,
     //right now our options are to switch between one & random
 
     searchState = SearchState::SECTOR;
@@ -899,10 +898,10 @@ void SearchController::setStartingPoint(double offsetStart, double increment, Po
     first_waypoint = true;
     //then, clear our current results.waypoints vector
     result.wpts.waypoints.clear();
-    //then, add our grid area's center point to our waypoints list  
+    //then, add our grid area's center point to our waypoints list
     result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
     //reset our search state to a wagon wheel? yes?
-    //although ideally we would be able to switch among different types of search pattern, 
+    //although ideally we would be able to switch among different types of search pattern,
     //right now our options are to switch between one & random
 
     searchState = SearchState::OCTAGON;
@@ -933,4 +932,3 @@ void SearchController::clearStash()
     stashLoop = 0;
     stashCounter = 0;
 }
-

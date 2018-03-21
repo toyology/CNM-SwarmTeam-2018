@@ -443,6 +443,9 @@ void LogicController::SetCenterLocationMap(Point centerLocationMap)
   //dropOffController.SetCenterLocation(centerLocationMap); //CNM added since Base Code
 }
 
+
+
+
 void LogicController::SetCurrentTimeInMilliSecs( long int time )
 {
   current_time = time;
@@ -488,35 +491,4 @@ void LogicController::cnmSetAvgCurrentLocation(Point cnmAVGCurrentLocation)
 
 void staticTest(){
   cout << "it worked" << endl;
-}
-
-//when our timer fires in ROSAdapter, we want to update where we're searching
-void LogicController::changeAreas(Point start, double radius){
-  //if we didn't save our previous search pattern
-  //which searchers should never do, only gatherers will do
-  if(searchController.updateSearch())
-  {
-    //if we don't have a previous search to resume, reset our timer &
-    //go back to doing what we were doing, I guess
-    searchController.setStartingPoint(start, radius);
-  }
-  //else, resume our previous timer and keep searching?
-  else
-  {
-
-  }
-  //and no matter what, clear out our stashed result
-  searchController.clearStash();
-}
-
-void LogicController::startGather(double offsetStart, double increment, Point p)
-{
-  //sets our gatherer's initial search pattern, incl. offset from home & total offset
-  searchController.setStartingPoint(offsetStart, increment, p);
-}
-
-void LogicController::goHelp(Point start, double radius)
-{
-    searchController.stashCurrentSearch();
-    searchController.setStartingPoint(start, radius);
 }

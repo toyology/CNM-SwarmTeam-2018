@@ -70,9 +70,7 @@ public:
   RANDOM
   }; 
   
-  SearchState searchState;  
-  //holds our search state so that we can
-  SearchState stashState; 
+  SearchState searchState; 
                        
   //Added 3-6-2018
   //Setting Search State
@@ -90,18 +88,6 @@ public:
   //Added 3-10-18 For Obstacle Handling
   void cnmSetObstacleAvoidanceState();
   //extern bool cnmObstacleAvoided;
-
-  //AJH added a way to interrupt our current search & set a new starting point
-  //for moving to new grid areas (the center point of the grid area)
-  //plus overloaded method to start our octagon search loops
-  void setStartingPoint(Point p, double radius);
-  void setStartingPoint(double offsetStart, double increment, Point p);
-  //stash current search saves our current search stage, if any
-  void stashCurrentSearch();
-  //update search tells us whether or not we have stuff to return to
-  bool updateSearch();
-  //clear stash clears out any remaining stash values
-  void clearStash();
 
 protected:
 
@@ -122,17 +108,11 @@ private:
   Point searchLocation;
   int attemptCount = 0;
   
-  //increment values for distance
+  //incrememnt values for distance
   double searchCounter;
   double searchDist;
   //struct for returning data to ROS adapter
   Result result;
-  //AJH added a way to stash our current results if we're interrupted
-  Result stash;
-  //stashLoop & stashCounter save our current search loop/counter values, so hopefully we 
-  //can return to what we were doing previously 
-  int stashLoop = 0;
-  int stashCounter = 0;
 
   // Search state
   // Flag to allow special behaviour for the first waypoint

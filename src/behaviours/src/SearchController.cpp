@@ -86,9 +86,8 @@ Result SearchController::DoWork()
         }
     }
     result.type = waypoint;
+    Point  searchLocation;
 
-    Point searchLocation;
-    
     //Added 3-10-2018 for obstacle handling
     
     //If setting new waypoint and no obstacle has been handled, increment 
@@ -100,23 +99,21 @@ Result SearchController::DoWork()
     }
     else
     {
-
-        //right now, we always want our gather swarmies to 
-        //stick with the octagon pattern
-        //all other search patterns should switch to random, if 
-        //they encounter enough obstacles
-        if(!searchState == OCTAGON){
-            if(++obstacleAvoidanceCount > 3)
-            {
-                cnmSearchLoop++;
-                searchStep++;
-                obstacleAvoidanceCount = 0;
-                if(++totalObstacleAvoidanceCount > 10)
-                    searchState = RANDOM;
-            }
-
+        //If avoided obstacle 3 times while trying to reach the same waypoint.
+        if(++obstacleAvoidanceCount > 3)
+        {
+          cout << "SEARCH - Called Obstacle 3 times going to next waypoint"  << endl;
+            //We increment waypoint, skipping the one it is trying to get to
+            cnmSearchLoop++;
+            searchStep++;
+            obstacleAvoidanceCount = 0; //resetting obstacle count
+            
+            //If obstacles avoided is over 10 without incrementing search
+            //distance then it switches to RANDOM search pattern. 
+            if(++totalObstacleAvoidanceCount > 10)
+                searchState = RANDOM;
+                cout << "SEARCH - Called Obstacle 10 times - switching to RND search"  << endl;
         }
-
     }
 
 
@@ -614,11 +611,10 @@ void SearchController::cnmSetCenterLocation(Point newLocation)
 
 void SearchController::SetCenterLocation(Point centerLocation)
 {
-    
-    float diffX = this->cnmCenterLocation.x - centerLocation.x;
-    float diffY = this->cnmCenterLocation.y - centerLocation.y;
-    this->cnmCenterLocation = centerLocation;
-    
+
+    float diffX = this->centerLocation.x - centerLocation.x;
+    float diffY = this->centerLocation.y - centerLocation.y;
+    this->centerLocation = centerLocation;
 
     if (!result.wpts.waypoints.empty())
     {
@@ -657,10 +653,7 @@ void SearchController::SetSearchCounter(double searchCounter)
     this->searchCounter = searchCounter;
 }
 
-void SearchController::ProcessData() 
-{
-    //AJH do something here????
-}
+void SearchController::ProcessData() {}
 
 bool SearchController::ShouldInterrupt()
 {
@@ -683,21 +676,20 @@ void SearchController::SetSuccesfullPickup()
 int SearchController::SquareSearchStartPosition()
 {
     int searchLoop =0;
-    
-    if (cnmCurrentLocation.theta + M_PI <= angles::from_degrees(80))
 
+    if (currentLocation.theta + M_PI <= angles::from_degrees(80))
     {
         searchLoop = 0;
     }
-    else if (cnmCurrentLocation.theta  + M_PI  <= angles::from_degrees(170))
+    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(170))
     {
         searchLoop = 1;
     }
-    else if (cnmCurrentLocation.theta  + M_PI  <= angles::from_degrees(260))
+    else if (currentLocation.theta  + M_PI  <= angles::from_degrees(260))
     {
         searchLoop = 2;
     }
-    else if (cnmCurrentLocation.theta  + M_PI <= angles::from_degrees(350))
+    else if (currentLocation.theta  + M_PI <= angles::from_degrees(350))
     {
         searchLoop = 3;
     }
@@ -710,37 +702,36 @@ int SearchController::SquareSearchStartPosition()
 int SearchController::OctagonSearchStartPosition()
 {
     int searchLoop = 0;
-    
-    if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
 
+    if (currentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 7;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(90))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(90))
     {
         searchLoop = 0;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(135))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(135))
     {
         searchLoop = 1;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(180))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(180))
     {
         searchLoop = 2;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(225))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(225))
     {
         searchLoop = 3;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(275))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(275))
     {
         searchLoop = 4;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(315))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(315))
     {
         searchLoop = 5;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(360))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(360))
     {
         searchLoop = 6;
     }
@@ -753,20 +744,20 @@ int SearchController::OctagonSearchStartPosition()
 int SearchController::StarSearchStartPosition()
 {
     int searchLoop = 0;
-    
-    if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
+
+    if (currentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 1;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(135))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(135))
     {
         searchLoop = 0;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(275))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(275))
     {
         searchLoop = 2;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(360))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(360))
     {
         searchLoop = 1;
     }
@@ -778,33 +769,32 @@ int SearchController::StarSearchStartPosition()
 int SearchController::SectorSearchStartPosition()
 {
     int searchLoop = 0;
-    
-    if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(45))
 
+    if (currentLocation.theta + M_PI<= angles::from_degrees(45))
     {
         searchLoop = 3;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(90))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(90))
     {
         searchLoop = 0;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(135))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(135))
     {
         searchLoop = 1;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(225))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(225))
     {
         searchLoop = 4;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(270))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(270))
     {
         searchLoop = 5;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(315))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(315))
     {
         searchLoop = 2;
     }
-    else if (cnmCurrentLocation.theta + M_PI<= angles::from_degrees(360))
+    else if (currentLocation.theta + M_PI<= angles::from_degrees(360))
     {
         searchLoop = 3;
     }
@@ -852,85 +842,8 @@ bool SearchController::CNMCurrentLocationAVG()
     cnmAVGCurrentLocation.y = y/CASIZE;
     cnmAVGCurrentLocation.theta = currentLocation.theta;
 
-
-bool SearchController::updateSearch(){
-    //first, check if stash is empty
-    //if it is not, return to our previous search state, if possible
-    if(stash.wpts.waypoints.size()!=0)
-    {
-        result = stash;
-        searchState = stashState;
-        cnmSearchLoop = stashLoop;
-        searchCounter = stashCounter;
-        //finally, clear waypoints
-        stash.wpts.waypoints.clear();
-        //since we still have work on our previous search, return false
-        return false;
-    }
-    //if stash is empty, then we need to go to our next gridpoint, I guess?
-    //so return true to indicate we can update our search location
+    SearchController::cnmSetAvgCurrentLocation(cnmAVGCurrentLocation);
+    cout << "AVGCL complete - X: " << cnmAVGCurrentLocation.x<< 
+            "   Y: " << cnmAVGCurrentLocation.y << endl;
     return true;
-}
-
-void SearchController::setStartingPoint(Point p, double radius){
-    //set our initial starting point for a search area
-    //first, tell our search controller that this is the first waypoint
-    first_waypoint = true;
-    //then, clear our current results.waypoints vector
-    result.wpts.waypoints.clear();
-    //then, add our grid area's center point to our waypoints list  
-    result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
-    //reset our search state to a wagon wheel? yes?
-    //although ideally we would be able to switch among different types of search pattern, 
-    //right now our options are to switch between one & random
-
-    searchState = SearchState::SECTOR;
-    SetSectorRadius(radius);
-    cnmSetCenterLocation(p);
-    cnmSearchLoop = 0;
-    searchCounter = radius;
-}
-
-//overloaded method for our gather swarmies
-void SearchController::setStartingPoint(double offsetStart, double increment, Point p)
-{
-    //set our initial starting point for a search area
-    //first, tell our search controller that this is the first waypoint
-    first_waypoint = true;
-    //then, clear our current results.waypoints vector
-    result.wpts.waypoints.clear();
-    //then, add our grid area's center point to our waypoints list  
-    result.wpts.waypoints.insert(result.wpts.waypoints.begin(), p);
-    //reset our search state to a wagon wheel? yes?
-    //although ideally we would be able to switch among different types of search pattern, 
-    //right now our options are to switch between one & random
-
-    searchState = SearchState::OCTAGON;
-    searchDist = increment;
-    //should be center of map
-    cnmSetCenterLocation(p);
-    cnmSearchLoop = OctagonSearchStartPosition();
-    searchCounter = offsetStart;
-}
-
-void SearchController::stashCurrentSearch()
-{
-    //if there are current seach waypoints
-    if(!result.wpts.waypoints.size()==0)
-    {
-        //copy current waypoints into our stash
-        stash = result;
-        stashState = searchState;
-        stashLoop = cnmSearchLoop;
-        stashCounter = searchCounter;
-        cnmSearchLoop = 0;
-    }
-}
-
-void SearchController::clearStash()
-{
-    stash.wpts.waypoints.clear();
-    stashLoop = 0;
-    stashCounter = 0;
-}
-
+  }

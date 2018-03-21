@@ -432,17 +432,17 @@ void staticTest(){
 void LogicController::changeAreas(Point start, double radius){
   //if we didn't save our previous search pattern
   //which searchers should never do, only gatherers will do
-  if(searchController.updateSearch())
-  {
+  //if(searchController.updateSearch())
+  //{
     //if we don't have a previous search to resume, reset our timer &
     //go back to doing what we were doing, I guess
     searchController.setStartingPoint(start, radius);
-  }
+  //}
   //else, resume our previous timer and keep searching?
-  else
-  {
+  //else
+  //{
 
-  }
+  //}
   //and no matter what, clear out our stashed result
   searchController.clearStash();
 }
@@ -456,5 +456,5 @@ void LogicController::startGather(double offsetStart, double increment, Point p)
 void LogicController::goHelp(Point start, double radius)
 {
     searchController.stashCurrentSearch();
-    searchController.setStartingPoint(start, radius);
+    searchController.setStartingPoint(1.0, 1.0, start);
 }

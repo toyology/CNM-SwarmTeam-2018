@@ -51,7 +51,7 @@ void ObstacleController::avoidCollectionZone() {
     }
 
     result.pd.setPointVel = 0.0;
-    result.pd.cmdVel = 0.0;
+    result.pd.cmdVel = -0.1;
     result.pd.setPointYaw = 0;
 }
 
@@ -81,8 +81,8 @@ Result ObstacleController::DoWork() {
     result.type = waypoint; 
     result.PIDMode = FAST_PID; //use fast pid for waypoints
     Point forward;            //waypoint is directly ahead of current heading
-    forward.x = currentLocation.x + (0.5 * cos(currentLocation.theta));
-    forward.y = currentLocation.y + (0.5 * sin(currentLocation.theta));
+    forward.x = currentLocation.x + (1.5 * cos(currentLocation.theta));
+    forward.y = currentLocation.y + (1.5 * sin(currentLocation.theta));
     result.wpts.waypoints.clear();
     result.wpts.waypoints.push_back(forward);
   }

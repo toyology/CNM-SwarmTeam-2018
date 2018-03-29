@@ -228,7 +228,7 @@ enum class Role{
     searcher3, //searches assigned areas, drops off for gatherer
     searcher4 //hybrid searches & gathers based on time
   };
-//variable to hold my role 
+//variable to hold my role
 Role myRole;
 int myStartTime;
 const int* myAreasBig;
@@ -313,7 +313,7 @@ bool sortTrigger2 = true;
 
 int main(int argc, char **argv) {
   /* @@@ */
-    
+
   gethostname(host, sizeof (host));
   string hostname(host);
 
@@ -352,7 +352,7 @@ int main(int argc, char **argv) {
   //AJH: each swarmie has an individual and broadcast subscriber, because some messages are targeted
   //but some messages will need to be sent out to all swarmies at once
   myNameSub =  mNH.subscribe(("dear"+publishedName), 10, &myMessageHandler);
-  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler); 
+  broadcastSub = mNH.subscribe("broadcast", 10, &myMessageHandler);
 
   //CNM CODE
   startOrderPub = mNH.advertise<std_msgs::String>("startOrder", 1000);			//startOrder
@@ -453,11 +453,17 @@ if (timerTimeElapsed > 33)
     sortOrder();
 }
 
+<<<<<<< HEAD
 //TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role & 
 //the time that they were working 
 //also, this is almost a minute after boot, but any earlier and we can't 
 //guarantee the efficacy of our role call messages
 if(gpsAveraged && !mapBuilt && timerTimeElapsed > 40)
+=======
+//TODO: AJH if a swarmie crashes & reboots, we want them to have a copy of their role &
+// the time that they were working
+if(timerTimeElapsed > 45 && roleReady)
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
 {
   mapBuilt = true;
   buildMap();
@@ -468,10 +474,16 @@ if(gpsAveraged && !mapBuilt && timerTimeElapsed > 40)
   }
 }
 
+<<<<<<< HEAD
 /*
 //TODO: AJH this is just for testing! I would never in good conscience hard code 
 //a comparison to a published name. That would be silly.
 if(timerTimeElapsed > 53 && publishedName == "artemis" && firstUpdate) 
+=======
+//TODO: AJH this is just for testing! I would never in good conscience hard code
+//a comparison to a published name. That would be silly.
+if(timerTimeElapsed > 53 && publishedName == "ajax" && firstUpdate)
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
 {
   firstUpdate = false;
   testStuff();
@@ -908,7 +920,7 @@ void joyCmdHandler(const sensor_msgs::Joy::ConstPtr& message) {
 
 void publishStatusTimerEventHandler(const ros::TimerEvent&) {
   std_msgs::String msg;
-  msg.data = "online";
+  msg.data = "¡CNM!";
   status_publisher.publish(msg);
 }
 
@@ -1122,6 +1134,19 @@ void sortOrderHandler(const std_msgs::String& msg)
       results.push_back(item);
   }
 
+<<<<<<< HEAD
+=======
+  /*
+  string buf; // Have a buffer string
+  stringstream ss(allNames); // Insert the string into a stream
+
+  while (ss >> buf)
+  {
+    results.push_back(buf);
+  }
+  */
+
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
    //std_msgs::String msgList;
    //stringstream ffs;
    //ffs << publishedName <<"'s list has " << swarmieNames.size() << " elements, rcv'd list has " << results.size();
@@ -1132,7 +1157,7 @@ void sortOrderHandler(const std_msgs::String& msg)
    //msgList.data = ffs.str();
    //infoLogPublisher.publish(msgList);
 
-   //AJH this might be breaking the whole damn thing eta: egads, I was right!!! 
+   //AJH this might be breaking the whole damn thing eta: egads, I was right!!!
    //but only because I don't know the difference between i & j
    //this will sort our list every time we add a name, so for now it's okay,
    //but it will not work in the case that a swarmie enters the arena part-way
@@ -1153,14 +1178,28 @@ void sortOrderHandler(const std_msgs::String& msg)
    }
 } 
 
+<<<<<<< HEAD
 void myMessageHandler(const swarmie_msgs::Waypoint& my_msg)
 {
+=======
+}
+
+//store up to 30 fence locations
+RangeController myFences[30];
+
+void myMessageHandler(const swarmie_msgs::Waypoint& my_msg){
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
   stringstream rcvd;
 
   msg.data = rcvd.str();
   infoLogPublisher.publish(msg);
   //AJH: do stuff
+<<<<<<< HEAD
   int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type  
+=======
+  int msg_type = my_msg.action; //static_cast<int>(my_msg.data[0]); // Shape type
+
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
   if (msg_type == swarmie_msgs::Waypoint::ACTION_REACHED)
   {
     //do something?
@@ -1392,6 +1431,7 @@ void assignSwarmieRoles(int currentTime){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
       case 0://gather1:
+<<<<<<< HEAD
         myRole = Role::gather1;           
         msg.data = ("I am a gatherer! (gather1)"); //My role is: " + myRole.toString());
         infoLogPublisher.publish(msg);
@@ -1425,9 +1465,18 @@ void assignSwarmieRoles(int currentTime){
         logicController.startGather(increment, 2.0, cnmCenterLocation);
         break;
       }  
+=======
+        myRole = Role::gather1;
+        msg.data = ("I am a gatherer!"); //My role is: " + myRole.toString());
+        infoLogPublisher.publish(msg);
+        break;
+      //searchers should get their initial grid areas, which are calculated based on team size and
+      //divided based on location
+      //see map on slack
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
       case 1://searcher1:
         myRole = Role::searcher1;
-        msg.data = ("I am a searcher! (searcher1)"); 
+        msg.data = ("I am a searcher! (searcher1)");
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
@@ -1458,7 +1507,7 @@ void assignSwarmieRoles(int currentTime){
         break;
       case 2://searcher2:
         myRole = Role::searcher2;
-        msg.data = ("I am a searcher! (searcher2)"); 
+        msg.data = ("I am a searcher! (searcher2)");
         infoLogPublisher.publish(msg);
         //build fence grids & assign subsets of grid:
         // for the grid fence
@@ -1488,7 +1537,7 @@ void assignSwarmieRoles(int currentTime){
         break;
       case 4://searcher3:
         myRole = Role::searcher3;
-        msg.data = ("I am a searcher! (searcher3)"); 
+        msg.data = ("I am a searcher! (searcher3)");
         infoLogPublisher.publish(msg);
         static const int mySmallArray3[4] = {15,20,21,22};
         myAreasSmall = &mySmallArray3[0];
@@ -1535,12 +1584,16 @@ void updateBehavior(int currentTime, int update){
     switch(myRole){
       //if gather, set initial fence area around home & begin searching/waiting for input there
       //gatherers should be on call for the searchers (if they find a resource, etc.)
+<<<<<<< HEAD
       case Role::gather1: 
       case Role::gather2:
+=======
+      case Role::gather1:
+>>>>>>> 91edfde... Changed "online" to CNM for comp rules
         break;
-      //searchers should get their initial grid areas, which are calculated based on team size and 
+      //searchers should get their initial grid areas, which are calculated based on team size and
       //divided based on location
-      //see map on slack 
+      //see map on slack
       case Role::searcher1:
       case Role::searcher2:
         if(swarmieNames.size()<4){
@@ -1580,7 +1633,7 @@ void testStuff(){
   my_msg.y = y;
   for(int i = 0; i < comms.size(); i++){
     //ros::Publisher& pub = comms.at(i);
-    //pub.publish(my_msg); 
+    //pub.publish(my_msg);
     comms.at(i).publish(my_msg);
     //msg.data = "testing publishers...";
     //infoLogPublisher.publish(msg);
